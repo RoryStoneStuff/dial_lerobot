@@ -1,8 +1,8 @@
-# LeRobot lower-body DIAL MPC and co-design
+# HydraX DIAL LeRobot lower-body locomotion
 
-This is the humanoid workflow from `../co_design/humanoid_codesign`, ported to
-the same zoo lower body used by the PPO gait experiment. DIAL plans joint
-position targets online. CMA-ES optionally searches robot morphology around
+This is the humanoid workflow from `../dial-mpc`, ported to
+the same zoo lower body used by the PPO gait experiment. DIAL plans lower-body control trajectories online. The baseline uses torque control
+with the official Unitree H1 lower-body limits. CMA-ES optionally searches robot morphology around
 that controller. Running MPC does not require a PPO checkpoint or PPO training.
 
 The model builder reads the existing file
@@ -18,14 +18,14 @@ On this machine the launcher uses the working DIAL environment at
 it does not install into or change that environment or the PPO environment.
 
 JAX compilation and GPU autotuning use a cache owned by the launching account:
-`~/.cache/lerobot_mpc-1000/jax` for `rory` (UID 1000). The package overrides
+`~/.cache/dial_lerobot-1000/jax` for `rory` (UID 1000). The package overrides
 HydraX's shared `/tmp/jax_cache` default after importing HydraX. This prevents
 root-run validation from leaving a cache that your normal GUI launch cannot
-write. Set `LEROBOT_MPC_CACHE_DIR` to choose another user-owned cache directory.
+write. Set `DIAL_LEROBOT_CACHE_DIR` to choose another user-owned cache directory.
 The first launch with a fresh cache recompiles the controller.
 
 ```bash
-cd /home/rory/coDesign/lerobot_mpc
+cd /home/rory/coDesign/dial_lerobot
 
 # Model identity, mass, motor gains, target limits and nominal design vector.
 bash run_mpc.sh inspect
@@ -80,12 +80,12 @@ bash run_mpc.sh test --help
 
 | Setting | Baseline | Meaning |
 |---|---:|---|
-| Physics timestep | 0.005 s | PPO MuJoCo physics rate, 200 Hz |
+| Physics timestep | 0.02 s | DIAL-style 50 Hz control/physics baseline |
 | Control decimation | 1 | Source evaluator replans each physics step |
-| Planning horizon | 0.5 s | 100 simulated physics steps per candidate |
-| Samples / knots / iterations | 1024 / 4 / 1 | Source DIAL settings |
-| Noise / temperature | 0.3 / 0.5 | Noise now acts on position targets in radians |
-| Annealing beta, iteration / horizon | 1.0 / 1.0 | DIAL's two annealing parameters |
+| Planning horizon | 0.4 s | 20 simulated steps per candidate |
+| Samples / knots / iterations | 2048 / 5 / 1 | DIAL H1-style baseline |
+| Noise / temperature | 0.3 / 0.05 | DIAL-style trajectory sampling temperature |
+| Annealing beta, iteration / horizon | 1.0 / 0.9 | DIAL trajectory annealing parameters |
 | Spline | zero | Zero-order hold; linear is also supported |
 | Episode updates / episodes | 300 / 2 | 1.5 s per episode at baseline decimation |
 | Initial height jitter | ±0.02 m | Independently seeded episodes |
@@ -115,9 +115,7 @@ Each physics step uses this weighted cost, with the source weights preserved:
 
 Terminal cost remains `5 * height_error² + 2 * (world_vx - target_vx)²
 + 10 * up_vector_error²`. The terminal velocity target deliberately retains
-the source's world-x frame and no ramp. There is no effort penalty in the
-source cost, so none is silently introduced here. Motor torques are still
-limited by the PPO actuator settings.
+the source's world-x frame and no ramp. The initial task keeps the existing cost terms while the controller is being validated. Torque effort cost can be added after the basic DIAL loop is stable.
 
 Necessary adaptations:
 
@@ -237,7 +235,7 @@ install this package and its dependencies into that local environment.
 Set `LEROBOT_ZOO_ROOT` if the zoo is elsewhere.
 
 ```bash
-cd /home/rory/coDesign/lerobot_mpc
+cd /home/rory/coDesign/dial_lerobot
 /home/rory/co_design/.venv/bin/python -m pytest -q
 /home/rory/coDesign/lerobot-legged-zoo/.venv/bin/python scripts/verify_ppo_model.py
 

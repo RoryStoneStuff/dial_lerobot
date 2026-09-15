@@ -81,4 +81,7 @@ def test_bad_knobs_fail_before_compilation():
         replace(cfg, cost=replace(CostConfig(), duty=1)).validate()
     with pytest.raises(ValueError):
         build_model([0, 0.26, 2])
-    assert load_config("configs/baseline.toml") == Config()
+    baseline = load_config("configs/baseline.toml")
+    assert baseline.robot.control_mode == "torque"
+    assert baseline.mpc.num_samples == 2048
+    assert baseline.mpc.num_knots == 5
