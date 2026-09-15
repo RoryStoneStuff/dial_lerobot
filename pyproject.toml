@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dial-lerobot"
+version = "0.1.0"
+description = "DIAL MPC and CMA-ES co-design for the zoo LeRobot lower body"
+requires-python = ">=3.12"
+dependencies = [
+  "mujoco==3.10.0", "mujoco-mjx==3.10.0", "jax==0.10.2",
+  "hydrax @ git+https://github.com/vincekurtz/hydrax.git@bd53d43d414e19557d38ee6c72613bf2e39fe834",
+  "numpy>=2", "cma==4.4.4", "matplotlib>=3.10",
+]
+
+[project.scripts]
+dial-lerobot = "dial_lerobot.run_experiment:main"
+
+[tool.setuptools.packages.find]
+include = ["dial_lerobot*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = ["integration: compiles and runs a small GPU/CPU MJX controller"]
