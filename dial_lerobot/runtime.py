@@ -17,8 +17,9 @@ def configure_jax_cache() -> Path:
     """
     account_home = Path(pwd.getpwuid(os.geteuid()).pw_dir)
     cache_base = Path(os.environ.get("XDG_CACHE_HOME", account_home / ".cache"))
-    default = cache_base / f"lerobot_mpc-{os.geteuid()}" / "jax"
-    cache = Path(os.environ.get("LEROBOT_MPC_CACHE_DIR", default)).expanduser().resolve()
+    default = cache_base / f"dial_lerobot-{os.geteuid()}" / "jax"
+    override = os.environ.get("DIAL_LEROBOT_CACHE_DIR", os.environ.get("LEROBOT_MPC_CACHE_DIR"))
+    cache = Path(override or default).expanduser().resolve()
     # Check the actual nested location used by XLA too: a writable parent can
     # still contain root-owned directories left by an earlier privileged run.
     autotune = cache / "xla_gpu_per_fusion_autotune_cache_dir"
@@ -32,7 +33,7 @@ def configure_jax_cache() -> Path:
         except OSError as exc:
             raise PermissionError(
                 f"Cannot write the MPC compilation cache at {directory}: {exc}. "
-                "Set LEROBOT_MPC_CACHE_DIR to a directory owned by your account."
+                "Set DIAL_LEROBOT_CACHE_DIR to a directory owned by your account."
             ) from exc
     if jax.config.jax_compilation_cache_dir != str(cache):
         # Imports can initialize JAX's file cache already. Updating its config
