@@ -28,6 +28,10 @@ class CostConfig:
     upright_weight: float = 5.0
     height_weight: float = 1.0
     hip_lateral_weight: float = 6.0
+    contact_weight: float = 0.05
+    yaw_weight: float = 0.1
+    angular_velocity_weight: float = 1.0
+    energy_weight: float = 0.01
     unhealthy_penalty: float = 10.0
     duty: float = 0.55
     cadence: float = 1.0

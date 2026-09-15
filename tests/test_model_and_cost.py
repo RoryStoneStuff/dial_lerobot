@@ -66,11 +66,12 @@ def test_cost_velocity_frame_and_fall_penalty(model, task):
     assert float(task.cost_terms(state, state.ctrl)[-1]) == 10
 
 
-def test_terminal_source_weights_and_no_effort_penalty(model, task):
+def test_terminal_source_weights_and_effort_cost(model, task):
     state = initial_data(model)
     assert float(task.terminal_cost(state)) == pytest.approx(0.5)
-    assert float(task.running_cost(state, np.zeros(12))) == pytest.approx(
-        float(task.running_cost(state, np.ones(12))))
+    zero_cost = float(task.running_cost(state, np.zeros(12)))
+    torque_cost = float(task.running_cost(state, np.ones(12)))
+    assert torque_cost > zero_cost
 
 
 def test_bad_knobs_fail_before_compilation():

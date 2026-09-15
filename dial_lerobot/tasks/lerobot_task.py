@@ -8,7 +8,7 @@ from dial_lerobot.assets.model_builder import FOOT_SITES, initial_data
 from dial_lerobot.config import CostConfig
 from dial_lerobot.runtime import configure_jax_cache
 
-COST_NAMES = ("gait", "joint_reference", "velocity", "upright", "height", "hip_lateral", "unhealthy")
+COST_NAMES = ("gait", "joint_reference", "velocity", "upright", "yaw", "angular_velocity", "height", "hip_lateral", "contact", "energy", "unhealthy")
 
 
 def quat_rotate(q, v):
@@ -79,6 +79,14 @@ class LeRobotLocomotionTask(Task):
         ramp = jnp.clip(time / max(self.cfg.ramp_up_time, 1e-6), 0, 1)
         return ramp * jnp.array([self.cfg.target_vx, self.cfg.target_vy])
 
+    def body_angular_velocity(self, state):
+        inverse = state.qpos[3:7] * jnp.array([1.0, -1.0, -1.0, -1.0])
+        return quat_rotate(inverse, state.qvel[3:6])
+
+    def yaw(self, state):
+        w, x, y, z = state.qpos[3:7]
+        return jnp.arctan2(2.0 * (w * z + x * y), 1.0 - 2.0 * (y * y + z * z))
+
     def up_vector(self, state):
         return quat_rotate(state.qpos[3:7], jnp.array([0.0, 0.0, 1.0]))
 
@@ -86,23 +94,37 @@ class LeRobotLocomotionTask(Task):
         return (self.up_vector(state)[2] > self.cfg.healthy_up_dot) & (state.qpos[2] > self.healthy_z_min)
 
     def cost_terms(self, state, control):
-        del control  # The source task has no effort/control penalty.
         c = self.cfg
         foot_ref, hip_ref, knee_ref = self.gait_reference(state.time)
-        # Flat-ground clearance from the existing sole sites stays meaningful
-        # during swing; contact.dist is absent once a foot leaves the floor.
-        gait_error = jnp.sum((state.site_xpos[self.foot_sites, 2] - foot_ref)**2)
+        foot_z = state.site_xpos[self.foot_sites, 2]
+        phase = jnp.mod(state.time * c.cadence + jnp.array([0.0, 0.5]), 1.0)
+        stance = phase < c.duty
+        # The official H1 task uses contact distances. The LeRobot model has
+        # reliable sole sites but no H1 contact layout, so use sole height for
+        # an equivalent stance/swing contact consistency term.
+        stance_contact_error = jnp.where(stance, foot_z**2, jnp.maximum(0.01 - foot_z, 0.0)**2)
+        gait_error = jnp.sum((foot_z - foot_ref)**2)
         ref_error = jnp.sum((state.qpos[self.hip_qadr] - hip_ref)**2
                             + (state.qpos[self.knee_qadr] - knee_ref)**2)
         velocity_error = jnp.sum((self.body_velocity(state)[:2] - self.target_velocity(state.time))**2)
         upright_error = jnp.sum((self.up_vector(state) - jnp.array([0.0, 0.0, 1.0]))**2)
+        yaw_error = self.yaw(state) ** 2
+        angular_velocity_error = self.body_angular_velocity(state)[2] ** 2
+        height_error = (state.qpos[2] - self.rest_height)**2
+        lateral_error = jnp.sum(state.qpos[self.lateral_qadr]**2)
+        torque_limits = jnp.asarray(self.mj_model.actuator_forcerange[:, 1])
+        energy_error = jnp.sum((control / torque_limits) ** 2)
         return jnp.stack((
             c.gait_weight * gait_error,
             c.ref_tracking_weight * ref_error,
             c.velocity_weight * velocity_error,
             c.upright_weight * upright_error,
-            c.height_weight * (state.qpos[2] - self.rest_height)**2,
-            c.hip_lateral_weight * jnp.sum(state.qpos[self.lateral_qadr]**2),
+            c.yaw_weight * yaw_error,
+            c.angular_velocity_weight * angular_velocity_error,
+            c.height_weight * height_error,
+            c.hip_lateral_weight * lateral_error,
+            c.contact_weight * jnp.sum(stance_contact_error),
+            c.energy_weight * energy_error,
             jnp.where(self.healthy(state), 0.0, c.unhealthy_penalty),
         ))
 
