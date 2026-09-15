@@ -108,8 +108,12 @@ Each physics step uses this weighted cost, with the source weights preserved:
 + 3 * squared hip-pitch and knee reference error
 + 4 * squared body-frame x/y velocity tracking error
 + 5 * squared root-up-vector error
++ 0.1 * squared torso yaw error
++ 1 * squared torso yaw-rate error
 + 1 * squared base-height error
 + 6 * squared hip lateral/yaw angles
++ 0.05 * stance/swing contact consistency error
++ 0.01 * normalized torque effort
 + 10 if unhealthy
 ```
 
