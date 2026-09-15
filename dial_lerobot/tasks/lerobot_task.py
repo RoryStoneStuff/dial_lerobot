@@ -42,7 +42,15 @@ class LeRobotLocomotionTask(Task):
         return jnp.array([self.mj_model.jnt_qposadr[self.mj_model.joint(n).id] for n in names])
 
     def _bounds(self, names):
-        return jnp.array([self.mj_model.actuator_ctrlrange[self.mj_model.actuator(n).id] for n in names])
+        # Torque actuators expose Nm in actuator_ctrlrange, so gait references
+        # must be clipped against the corresponding joint angle limits.
+        bounds = []
+        for name in names:
+            jid = self.mj_model.joint(name).id
+            limits = self.mj_model.jnt_range[jid]
+            midpoint = limits.mean()
+            bounds.append(midpoint + 0.9 * (limits - midpoint))
+        return jnp.array(bounds)
 
     def gait_reference(self, time):
         c = self.cfg
