@@ -40,9 +40,10 @@ def test_nominal_and_morphology_actually_change_dynamics(model):
 def test_feet_alternate_and_references_respect_real_limits(task):
     left = task.gait_reference(0.775)
     right = task.gait_reference(0.275)
-    np.testing.assert_allclose(left[0], [0.06, 0.0], atol=1e-6)
-    np.testing.assert_allclose(right[0], [0.0, 0.06], atol=1e-6)
-    assert float(left[2][0]) == pytest.approx(-0.5625)
+    assert float(left[0][0]) > float(left[0][1])
+    assert float(right[0][1]) > float(right[0][0])
+    assert np.allclose(task.gait_reference(0.0)[1], 0.0, atol=1e-6)
+    assert np.max(np.abs(np.asarray(left[2]))) <= 0.35 + 1e-6
     for t in np.linspace(0, 1, 25):
         _, hips, knees = task.gait_reference(t)
         assert np.all(hips >= np.asarray(task.hip_bounds)[:, 0])
@@ -60,6 +61,9 @@ def test_cost_velocity_frame_and_fall_penalty(model, task):
     mujoco.mj_forward(model, state)
     terms = np.asarray(task.cost_terms(state, state.ctrl))
     assert terms[2] < 1e-10
+    # Neutral site markers are offset above the sole by the same amount used
+    # by the gait cost, so initial stance has no artificial height error.
+    assert float(terms[0]) < 1e-6
     assert terms[-1] == 0
     state.qpos[2] = task.healthy_z_min - 0.01
     mujoco.mj_forward(model, state)

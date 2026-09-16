@@ -74,7 +74,7 @@ class Evaluator:
             "ctrl": control, "action": action, "actuator_force": state.actuator_force,
             "cost_terms": jnp.sum(costs, axis=0), "body_velocity": self.task.body_velocity(state),
             "target_velocity": self.task.target_velocity(state.time), "feet": feet,
-            "foot_target_z": self.task.gait_reference(state.time)[0],
+            "foot_target_z": self.task.gait_reference(state.time)[0] + self.task.foot_height_offset,
             "healthy": self.task.healthy(state),
             "plan_cost_min": jnp.min(jnp.sum(rollouts.costs, axis=-1)),
         }

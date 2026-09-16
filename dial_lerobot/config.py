@@ -14,7 +14,7 @@ class RobotConfig:
     solver_iterations: int = 100
     ls_iterations: int = 50
     soft_joint_limit_factor: float = 0.9
-    initial_clearance: float = 0.03
+    initial_clearance: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -33,11 +33,11 @@ class CostConfig:
     angular_velocity_weight: float = 1.0
     energy_weight: float = 0.01
     unhealthy_penalty: float = 10.0
-    duty: float = 0.55
+    duty: float = 0.50
     cadence: float = 1.0
-    swing_height: float = 0.06
-    hip_amplitude: float = 0.6
-    knee_amplitude: float = 0.9
+    swing_height: float = 0.05
+    hip_amplitude: float = 0.25
+    knee_amplitude: float = 0.35
     # Berkeley coordinates, translated to the zoo CAD zero pose in the task.
     qstand_hip: float = -0.20
     qstand_knee: float = 0.40

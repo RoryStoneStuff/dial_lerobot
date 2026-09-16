@@ -28,6 +28,10 @@ class LeRobotLocomotionTask(Task):
         self.healthy_z_min = (self.rest_height * cfg.source_healthy_z_min / cfg.source_rest_height
                               if cfg.healthy_z_min is None else cfg.healthy_z_min)
         self.foot_sites = jnp.array([mj_model.site(s).id for s in FOOT_SITES])
+        # These sites are frame markers above the sole collision geometry.
+        # Express gait height relative to their nominal neutral height so a
+        # stance target of zero means "on the floor", not "inside the floor".
+        self.foot_height_offset = jnp.asarray(initial_data(mj_model).site_xpos[self.foot_sites, 2])
         # Resolve names, since the zoo has right-first qpos and grouped actuators.
         self.hip_qadr = self._qadr(("hipy_left", "hipy_right"))
         self.knee_qadr = self._qadr(("knee_left", "knee_right"))
@@ -41,6 +45,7 @@ class LeRobotLocomotionTask(Task):
         # Official DIAL H1 torque mode: normalized action -> joint target -> PD torque.
         self.kp = jnp.array([200.0 if not n.startswith("ankle") else 60.0 for n in JOINT_NAMES])
         self.kd = jnp.array([5.0 if not n.startswith("ankle") else 1.5 for n in JOINT_NAMES])
+        self.action_joint_bounds = self._bounds(JOINT_NAMES)
         self.u_min = -jnp.ones(len(JOINT_NAMES))
         self.u_max = jnp.ones(len(JOINT_NAMES))
         # Relative to Berkeley pitch coordinates: left hip flips, both knees flip.
@@ -63,9 +68,16 @@ class LeRobotLocomotionTask(Task):
 
     def action_to_control(self, state, action):
         """Map a normalized DIAL action to an H1-style clipped PD torque."""
-        joint_ids = jnp.array([self.mj_model.joint(n).id for n in JOINT_NAMES])
-        limits = jnp.asarray(self.mj_model.jnt_range)[joint_ids]
-        target = limits[:, 0] + 0.5 * (action + 1.0) * (limits[:, 1] - limits[:, 0])
+        limits = self.action_joint_bounds
+        # The zoo XML neutral pose is q=0, while knee/ankle physical ranges
+        # are asymmetric. Centering the action on the range midpoint would
+        # apply a constant torque at action=0, unlike the source H1 home pose.
+        q_neutral = jnp.zeros_like(action)
+        target = q_neutral + jnp.where(
+            action >= 0.0,
+            action * (limits[:, 1] - q_neutral),
+            action * (q_neutral - limits[:, 0]),
+        )
         q = state.qpos[self.qpos_indices]
         qd = state.qvel[self.dof_indices]
         torque = self.kp * (target - q) - self.kd * qd
@@ -80,14 +92,11 @@ class LeRobotLocomotionTask(Task):
         swing_frac = jnp.clip((phase - c.duty) / (1 - c.duty), 0.0, 1.0)
         swing = (1 - stance) * jnp.sin(jnp.pi * swing_frac)
         foot_z = c.swing_height * swing
-        hip_berkeley = c.qstand_hip + jnp.where(
-            stance > 0, -c.hip_amplitude * jnp.cos(jnp.pi * stance_frac),
-            c.hip_amplitude * jnp.cos(jnp.pi * swing_frac))
-        knee_berkeley = c.qstand_knee + c.knee_amplitude * swing
-        # Source stand posture is the origin of the transform: zoo CAD zero
-        # already bends the legs. Do not command Berkeley's +0.4 knee angle.
-        hip = self.hip_sign * (hip_berkeley - (-0.20))
-        knee = self.knee_sign * (knee_berkeley - 0.40)
+        # The LeRobot XML neutral pose is q=0 for every lower-body joint.
+        # Use a zero-centered sagittal swing so the first MPC update does not
+        # impose the source H1's nonzero home-pose offset.
+        hip = self.hip_sign * c.hip_amplitude * jnp.sin(2 * jnp.pi * phase)
+        knee = self.knee_sign * c.knee_amplitude * swing
         return (foot_z, jnp.clip(hip, self.hip_bounds[:, 0], self.hip_bounds[:, 1]),
                 jnp.clip(knee, self.knee_bounds[:, 0], self.knee_bounds[:, 1]))
 
@@ -116,7 +125,7 @@ class LeRobotLocomotionTask(Task):
     def cost_terms(self, state, control):
         c = self.cfg
         foot_ref, hip_ref, knee_ref = self.gait_reference(state.time)
-        foot_z = state.site_xpos[self.foot_sites, 2]
+        foot_z = state.site_xpos[self.foot_sites, 2] - self.foot_height_offset
         phase = jnp.mod(state.time * c.cadence + jnp.array([0.0, 0.5]), 1.0)
         stance = phase < c.duty
         # The official H1 task uses contact distances. The LeRobot model has
@@ -156,10 +165,14 @@ class LeRobotLocomotionTask(Task):
         upright_error = jnp.sum((self.up_vector(state) - jnp.array([0.0, 0.0, 1.0]))**2)
         # Preserve the source's un-ramped WORLD-x terminal velocity target.
         return (c.terminal_height_weight * (state.qpos[2] - self.rest_height)**2
-                + c.terminal_velocity_weight * (state.qvel[0] - c.target_vx)**2
+                + c.terminal_velocity_weight * (self.body_velocity(state)[0] - c.target_vx)**2
                 + c.terminal_upright_weight * upright_error)
 
     def describe(self):
         return {"rest_height_m": self.rest_height, "healthy_z_min_m": self.healthy_z_min,
-                "phase_order": ["left", "right"], "hip_sign": np.asarray(self.hip_sign).tolist(),
+                "phase_order": ["left", "right"],
+                "foot_height_offset_m": np.asarray(self.foot_height_offset).tolist(),
+                "action_joint_bounds": np.asarray(self.action_joint_bounds).tolist(),
+                "action_neutral_q": [0.0] * len(JOINT_NAMES),
+                "hip_sign": np.asarray(self.hip_sign).tolist(),
                 "knee_sign": np.asarray(self.knee_sign).tolist(), "cost_terms": list(COST_NAMES)}

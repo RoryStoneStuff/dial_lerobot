@@ -5,7 +5,7 @@ control_mode = "torque"
 solver_iterations = 100
 ls_iterations = 50
 soft_joint_limit_factor = 0.9
-initial_clearance = 0.03
+initial_clearance = 0.0
 
 [mpc]
 plan_horizon = 0.4
@@ -34,11 +34,11 @@ yaw_weight = 0.1
 angular_velocity_weight = 1.0
 energy_weight = 0.01
 unhealthy_penalty = 10.0
-duty = 0.55
+duty = 0.50
 cadence = 1.0
-swing_height = 0.06
-hip_amplitude = 0.6
-knee_amplitude = 0.9
+swing_height = 0.05
+hip_amplitude = 0.25
+knee_amplitude = 0.35
 qstand_hip = -0.20
 qstand_knee = 0.40
 source_rest_height = 0.85
