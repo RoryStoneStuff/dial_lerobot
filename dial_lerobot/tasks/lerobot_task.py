@@ -4,7 +4,7 @@ import jax.numpy as jnp
 import numpy as np
 from hydrax.task_base import Task
 
-from dial_lerobot.assets.model_builder import FOOT_SITES, initial_data
+from dial_lerobot.assets.model_builder import FOOT_SITES, JOINT_NAMES, initial_data
 from dial_lerobot.config import CostConfig
 from dial_lerobot.runtime import configure_jax_cache
 
@@ -34,6 +34,15 @@ class LeRobotLocomotionTask(Task):
         self.lateral_qadr = self._qadr(("hipx_left", "hipz_left", "hipx_right", "hipz_right"))
         self.hip_bounds = self._bounds(("hipy_left", "hipy_right"))
         self.knee_bounds = self._bounds(("knee_left", "knee_right"))
+        self.qpos_indices = jnp.array([self.mj_model.jnt_qposadr[self.mj_model.joint(n).id]
+                                        for n in JOINT_NAMES])
+        self.dof_indices = jnp.array([self.mj_model.jnt_dofadr[self.mj_model.joint(n).id]
+                                      for n in JOINT_NAMES])
+        # Official DIAL H1 torque mode: normalized action -> joint target -> PD torque.
+        self.kp = jnp.array([200.0 if not n.startswith("ankle") else 60.0 for n in JOINT_NAMES])
+        self.kd = jnp.array([5.0 if not n.startswith("ankle") else 1.5 for n in JOINT_NAMES])
+        self.u_min = -jnp.ones(len(JOINT_NAMES))
+        self.u_max = jnp.ones(len(JOINT_NAMES))
         # Relative to Berkeley pitch coordinates: left hip flips, both knees flip.
         self.hip_sign = jnp.array([-1.0, 1.0])
         self.knee_sign = jnp.array([-1.0, -1.0])
@@ -51,6 +60,17 @@ class LeRobotLocomotionTask(Task):
             midpoint = limits.mean()
             bounds.append(midpoint + 0.9 * (limits - midpoint))
         return jnp.array(bounds)
+
+    def action_to_control(self, state, action):
+        """Map a normalized DIAL action to an H1-style clipped PD torque."""
+        joint_ids = jnp.array([self.mj_model.joint(n).id for n in JOINT_NAMES])
+        limits = jnp.asarray(self.mj_model.jnt_range)[joint_ids]
+        target = limits[:, 0] + 0.5 * (action + 1.0) * (limits[:, 1] - limits[:, 0])
+        q = state.qpos[self.qpos_indices]
+        qd = state.qvel[self.dof_indices]
+        torque = self.kp * (target - q) - self.kd * qd
+        force_range = jnp.asarray(self.mj_model.actuator_forcerange)
+        return jnp.clip(torque, force_range[:, 0], force_range[:, 1])
 
     def gait_reference(self, time):
         c = self.cfg
@@ -112,8 +132,8 @@ class LeRobotLocomotionTask(Task):
         angular_velocity_error = self.body_angular_velocity(state)[2] ** 2
         height_error = (state.qpos[2] - self.rest_height)**2
         lateral_error = jnp.sum(state.qpos[self.lateral_qadr]**2)
-        torque_limits = jnp.asarray(self.mj_model.actuator_forcerange[:, 1])
-        energy_error = jnp.sum((control / torque_limits) ** 2)
+        # Penalize normalized command magnitude, as in the DIAL action space.
+        energy_error = jnp.sum(control ** 2)
         return jnp.stack((
             c.gait_weight * gait_error,
             c.ref_tracking_weight * ref_error,

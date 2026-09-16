@@ -118,6 +118,8 @@ def model_xml(theta=None, cfg: RobotConfig = RobotConfig()) -> str:
         joint.set("damping", "0")
         limits = _numbers(joint.get("range"))
         if cfg.control_mode == "torque":
+            # Keep MuJoCo's actuator interface in physical Nm. The DIAL task
+            # maps normalized actions through the H1-style PD controller.
             ET.SubElement(actuator, "motor", name=name, joint=name,
                           ctrllimited="true", ctrlrange=_fmt([-effort, effort]),
                           forcelimited="true", forcerange=_fmt([-effort, effort]))

@@ -7,7 +7,7 @@ import time
 
 import jax
 import jax.numpy as jnp
-from hydrax.algs import DIAL
+from dial_lerobot.controllers import LeRobotDIAL
 from mujoco import mjx
 import numpy as np
 
@@ -38,7 +38,7 @@ class Evaluator:
         self.model = build_model(self.theta, cfg.robot)
         self.task = LeRobotLocomotionTask(self.model, cfg.cost)
         m = cfg.mpc
-        self.controller = DIAL(
+        self.controller = LeRobotDIAL(
             self.task, num_samples=m.num_samples, noise_level=m.noise_level,
             beta_opt_iter=m.beta_opt_iter, beta_horizon=m.beta_horizon,
             temperature=m.temperature, plan_horizon=m.plan_horizon,
@@ -58,9 +58,11 @@ class Evaluator:
     def _step(self, state, params):
         params, rollouts = self.controller.optimize(state, params)
         action = jnp.clip(self.controller.get_action(params, state.time), self.task.u_min, self.task.u_max)
+        control = self.task.action_to_control(state, action)
 
         def physics_step(data, _):
-            data = mjx.step(self.task.model, data.replace(ctrl=action))
+            control_now = self.task.action_to_control(data, action)
+            data = mjx.step(self.task.model, data.replace(ctrl=control_now))
             # Refresh kinematics so feet and qpos describe the same instant.
             data = mjx.forward(self.task.model, data)
             return data, self.task.cost_terms(data, action)
@@ -69,7 +71,7 @@ class Evaluator:
         feet = state.site_xpos[self.task.foot_sites]
         row = {
             "time": state.time, "qpos": state.qpos, "qvel": state.qvel,
-            "ctrl": action, "actuator_force": state.actuator_force,
+            "ctrl": control, "action": action, "actuator_force": state.actuator_force,
             "cost_terms": jnp.sum(costs, axis=0), "body_velocity": self.task.body_velocity(state),
             "target_velocity": self.task.target_velocity(state.time), "feet": feet,
             "foot_target_z": self.task.gait_reference(state.time)[0],
@@ -98,12 +100,16 @@ class Evaluator:
         initial_x = float(state.qpos[0])
         log = {}
         start = time.perf_counter()
+        failure_reason = None
         for step in range(self.cfg.evaluation.episode_steps):
             tick = time.perf_counter()
             state, params, row = self.step(state, params)
             host = jax.device_get(row)
             if not all(np.isfinite(v).all() for v in host.values()):
-                raise FloatingPointError(f"Non-finite DIAL rollout at update {step}")
+                failure_reason = "nonfinite"
+                if progress:
+                    print(f"  update {step + 1}: non-finite rollout; stopping and saving prefix", flush=True)
+                break
             for key, value in host.items():
                 log.setdefault(key, []).append(value)
             log.setdefault("wall_step_seconds", []).append(time.perf_counter() - tick)
@@ -117,12 +123,15 @@ class Evaluator:
         arrays = {key: np.asarray(value) for key, value in log.items()}
         distance = float(arrays["qpos"][-1, 0] - initial_x)
         total_cost = float(arrays["cost_terms"].sum())
-        fell = not bool(arrays["healthy"][-1])
+        fell = not bool(arrays["healthy"][-1]) or failure_reason is not None
+        if failure_reason is None and fell:
+            failure_reason = "fall"
         summary = {"seed": int(seed), "fitness": distance - total_cost,
                    "distance_x_m": distance, "total_running_cost": total_cost,
                    "sim_seconds": float(arrays["time"][-1]), "wall_seconds": time.perf_counter() - start,
                    "updates": int(len(arrays["time"])), "fell": fell,
                    "failure_time_s": float(arrays["time"][-1]) if fell else None,
+                   "failure_reason": failure_reason,
                    "mean_vx_m_s": float(arrays["body_velocity"][:, 0].mean()),
                    "final_height_m": float(arrays["qpos"][-1, 2]),
                    "healthy_fraction": float(arrays["healthy"].mean()),

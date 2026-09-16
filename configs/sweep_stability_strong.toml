@@ -1,0 +1,22 @@
+[robot]
+timestep = 0.02
+control_mode = "torque"
+
+[mpc]
+plan_horizon = 0.4
+num_knots = 5
+num_samples = 256
+noise_level = 0.05
+temperature = 0.02
+beta_opt_iter = 1.0
+beta_horizon = 0.9
+iterations = 2
+
+[cost]
+target_vx = 0.3
+upright_weight = 40.0
+height_weight = 10.0
+ref_tracking_weight = 1.0
+angular_velocity_weight = 5.0
+contact_weight = 0.1
+unhealthy_penalty = 50.0

@@ -23,5 +23,5 @@ def test_dial_seed_bounds_logs_and_replay(tmp_path):
     assert trajectory["qpos"].shape == (2, 19)
     assert np.all(trajectory["ctrl"] >= model.actuator_ctrlrange[:, 0] - 1e-7)
     assert np.all(trajectory["ctrl"] <= model.actuator_ctrlrange[:, 1] + 1e-7)
-    assert trajectory["time"][-1] == pytest.approx(0.01)
+    assert trajectory["time"][-1] == pytest.approx(cfg.robot.timestep * cfg.mpc.control_decimation * 2, abs=1e-6)
     assert (tmp_path / "episode_000.csv").is_file()
