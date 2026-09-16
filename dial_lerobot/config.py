@@ -71,6 +71,7 @@ class EvaluationConfig:
     episode_steps: int = 300  # MPC updates; dt * decimation seconds per update.
     num_episodes: int = 2
     height_jitter: float = 0.02
+    terminate_on_fall: bool = True
     seed: int = 0
 
 

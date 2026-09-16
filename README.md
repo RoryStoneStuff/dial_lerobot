@@ -96,8 +96,9 @@ bash run_mpc.sh test --help
 The source's 300-update episode ends before the two-second velocity ramp has
 finished with this robot's timestep. Keep those defaults for source comparison;
 use longer episodes to assess locomotion. `steps * timestep * decimation`
-gives the episode's simulation duration. A fall adds the unhealthy cost and
-does not terminate the episode early, matching the source evaluator.
+gives the episode's simulation duration. By default, a fall terminates the episode immediately. The saved trajectory is
+still written, together with `fell`, `failure_time_s`, and the prefix cost totals.
+Set `terminate_on_fall = false` only when reproducing a fixed-length diagnostic.
 
 ## Cost function
 

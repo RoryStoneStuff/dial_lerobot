@@ -107,16 +107,22 @@ class Evaluator:
             for key, value in host.items():
                 log.setdefault(key, []).append(value)
             log.setdefault("wall_step_seconds", []).append(time.perf_counter() - tick)
-            if progress and (step + 1) % 25 == 0:
+            healthy = bool(np.asarray(host["healthy"]))
+            if progress and ((step + 1) % 25 == 0 or not healthy):
                 print(f"  update {step + 1}/{self.cfg.evaluation.episode_steps}, "
                       f"sim {float(host['time']):.2f}s, vx {float(host['body_velocity'][0]):.3f} m/s, "
-                      f"z {float(host['qpos'][2]):.3f}m", flush=True)
+                      f"z {float(host['qpos'][2]):.3f}m, healthy={healthy}", flush=True)
+            if self.cfg.evaluation.terminate_on_fall and not healthy:
+                break
         arrays = {key: np.asarray(value) for key, value in log.items()}
         distance = float(arrays["qpos"][-1, 0] - initial_x)
         total_cost = float(arrays["cost_terms"].sum())
+        fell = not bool(arrays["healthy"][-1])
         summary = {"seed": int(seed), "fitness": distance - total_cost,
                    "distance_x_m": distance, "total_running_cost": total_cost,
                    "sim_seconds": float(arrays["time"][-1]), "wall_seconds": time.perf_counter() - start,
+                   "updates": int(len(arrays["time"])), "fell": fell,
+                   "failure_time_s": float(arrays["time"][-1]) if fell else None,
                    "mean_vx_m_s": float(arrays["body_velocity"][:, 0].mean()),
                    "final_height_m": float(arrays["qpos"][-1, 2]),
                    "healthy_fraction": float(arrays["healthy"].mean()),
