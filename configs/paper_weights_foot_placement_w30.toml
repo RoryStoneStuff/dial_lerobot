@@ -1,0 +1,56 @@
+# Paper weights with stronger torso stabilization.
+[robot]
+timestep = 0.005
+control_mode = "torque"
+initial_clearance = 0.0
+
+[mpc]
+plan_horizon = 0.3
+num_knots = 5
+num_samples = 256
+noise_level = 0.03
+temperature = 0.00015
+beta_opt_iter = 1.0
+beta_horizon = 0.9
+iterations = 1
+control_decimation = 2
+
+[cost]
+target_vx = 0.3
+gait_weight = 25.0
+ref_tracking_weight = 0.0
+velocity_weight = 1.0
+upright_weight = 5.0
+height_weight = 0.5
+hip_lateral_weight = 0.0
+contact_weight = 0.0
+contact_tolerance = 0.002
+contact_height_scale = 0.02
+stance_slip_weight = 0.0
+stance_slip_scale = 0.2
+gait_start_delay = 0.0
+yaw_weight = 0.1
+angular_velocity_weight = 5.0
+foot_level_weight = 0.02
+foot_placement_weight = 30.0
+energy_weight = 0.01
+air_time_weight = 0.0
+position_weight = 0.0
+contact_event_weight = 0.0
+alive_weight = 0.0
+unhealthy_penalty = 10.0
+duty = 0.50
+cadence = 1.0
+swing_height = 0.15
+hip_amplitude = 0.25
+knee_amplitude = 0.35
+terminal_height_weight = 0.0
+terminal_velocity_weight = 0.0
+terminal_upright_weight = 0.0
+
+[evaluation]
+episode_steps = 1000
+num_episodes = 1
+height_jitter = 0.0
+terminate_on_fall = true
+seed = 45

@@ -9,9 +9,15 @@ description = "DIAL MPC and CMA-ES co-design for the zoo LeRobot lower body"
 requires-python = ">=3.12"
 dependencies = [
   "mujoco==3.10.0", "mujoco-mjx==3.10.0", "jax==0.10.2",
-  "hydrax @ git+https://github.com/vincekurtz/hydrax.git@bd53d43d414e19557d38ee6c72613bf2e39fe834",
-  "numpy>=2", "cma==4.4.4", "matplotlib>=3.10",
+  "hydrax @ git+https://github.com/vincekurtz/hydrax.git@33ec819479c25d623a4ad490574c00e624848d2c",
+  "numpy>=2", "cma==4.4.4", "matplotlib>=3.10", "jax-cosmo==0.1.0",
+  "setuptools>=69,<81",
 ]
+
+[project.optional-dependencies]
+cuda12 = ["jax[cuda12]==0.10.2"]
+cuda13 = ["jax[cuda13]==0.10.2"]
+dev = ["pytest>=8"]
 
 [project.scripts]
 dial-lerobot = "dial_lerobot.run_experiment:main"

@@ -1,0 +1,34 @@
+# Stance-contact investigation; walking performance is not established.
+[robot]
+timestep = 0.005
+control_mode = "torque"
+initial_clearance = 0.0
+
+[mpc]
+plan_horizon = 0.3
+num_knots = 5
+num_samples = 128
+noise_level = 0.03
+temperature = 0.05
+beta_opt_iter = 1.0
+beta_horizon = 0.9
+iterations = 1
+control_decimation = 2
+
+[cost]
+target_vx = 0.3
+gait_weight = 25.0
+ref_tracking_weight = 12.0
+contact_weight = 0.05
+contact_tolerance = 0.002
+contact_height_scale = 0.02
+stance_slip_weight = 0.0
+stance_slip_scale = 0.2
+gait_start_delay = 0.0
+
+[evaluation]
+episode_steps = 1000
+num_episodes = 1
+height_jitter = 0.0
+terminate_on_fall = true
+seed = 45

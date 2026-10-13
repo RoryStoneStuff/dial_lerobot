@@ -5,3 +5,7 @@ __pycache__/
 *.egg-info/
 results/
 MUJOCO_LOG.TXT
+external/
+*.log
+.env
+.env.*

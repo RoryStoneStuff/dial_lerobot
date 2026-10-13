@@ -17,9 +17,10 @@ def parser():
     common.add_argument("--zoo-root", help="Path to existing lerobot-legged-zoo")
     common.add_argument("--timestep", type=float, help="Physics timestep in seconds")
     source = common.add_mutually_exclusive_group()
-    source.add_argument("--theta", nargs=3, type=float, metavar=("THIGH_M", "SHIN_M", "DENSITY"))
+    source.add_argument("--theta", nargs="+", type=float, metavar="VALUE",
+                        help="THIGH_M SHIN_M DENSITY_PROXY [HIP_WIDTH_M]; three-value designs retain nominal hip spacing")
     source.add_argument("--design", type=Path, help="best_design.json; loads saved config unless --config is given")
-    for name, help_text in (("vx", "Forward target in m/s"), ("vy", "Lateral target in m/s"),
+    for name, help_text in (("vx", "Forward target in m/s"), ("vy", "Lateral target in m/s"), ("wz", "Yaw-rate target in rad/s"),
                             ("horizon", "Planning horizon in seconds"), ("noise", "DIAL sampling noise"),
                             ("temperature", "DIAL weighting temperature")):
         common.add_argument(f"--{name}", type=float, help=help_text)
@@ -47,6 +48,8 @@ def parser():
     cmd.add_argument("--rate", type=float, default=1.0, help="Maximum playback speed")
     cmd = sub.add_parser("snapshot", parents=[common], help="Render model to PNG")
     cmd.add_argument("--output", type=Path, default=Path("results/nominal_model.png"))
+    sub.add_parser("contacts", parents=[common],
+                   help="Open a MuJoCo-only viewer for generated foot contact geometry")
     cmd = sub.add_parser("replay", help="MuJoCo playback of saved .npz, without computing MPC")
     cmd.add_argument("trajectory", type=Path)
     cmd.add_argument("--rate", type=float, default=1.0)
@@ -61,9 +64,11 @@ def resolve(args):
     design = json.loads(args.design.read_text()) if args.design else None
     cfg = from_dict(design["config"]) if design and not args.config else load_config(args.config)
     theta = design["theta"] if design else args.theta
+    if theta is not None and len(theta) not in (3, 4):
+        raise ValueError("--theta requires three or four values")
     mappings = {
         "robot": {"zoo_root": "zoo_root", "timestep": "timestep"},
-        "cost": {"vx": "target_vx", "vy": "target_vy"},
+        "cost": {"vx": "target_vx", "vy": "target_vy", "wz": "target_wz"},
         "mpc": {"samples": "num_samples", "horizon": "plan_horizon", "knots": "num_knots",
                 "iterations": "iterations", "noise": "noise_level", "temperature": "temperature",
                 "decimation": "control_decimation"},
@@ -101,7 +106,7 @@ def main():
         print(plot_results(args.input, args.output))
         return
     cfg, theta = resolve(args)
-    if args.command in ("inspect", "snapshot"):
+    if args.command in ("inspect", "snapshot", "contacts"):
         from dial_lerobot.assets.model_builder import build_model, describe_model, model_xml, nominal_design
         theta = nominal_design(cfg.robot) if theta is None else theta
         model = build_model(theta, cfg.robot)
@@ -110,10 +115,13 @@ def main():
             if args.export_xml:
                 args.export_xml.parent.mkdir(parents=True, exist_ok=True)
                 args.export_xml.write_text(model_xml(theta, cfg.robot))
-        else:
+        elif args.command == "snapshot":
             from dial_lerobot.visualize_lerobot import snapshot
             snapshot(model, args.output)
             print(args.output.resolve())
+        else:
+            from dial_lerobot.visualize_lerobot import contact_view
+            contact_view(model)
         return
     if args.command in ("test", "render"):
         from dial_lerobot.evaluator import Evaluator
@@ -130,7 +138,7 @@ def main():
     elif args.command == "optimize":
         from dial_lerobot.optimize import optimize_design
         result = optimize_design(cfg, new_output(args), theta)
-        print(f"Best theta: {result['best_theta']}; fitness: {result['best_fitness']}")
+        print(f"Best theta: {result['best_theta']}; objective: {result['best_objective']}")
     elif args.command == "heatmap":
         from dial_lerobot.optimize import design_heatmap
         if theta is not None:

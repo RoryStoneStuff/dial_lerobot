@@ -1,0 +1,66 @@
+# Unitree-H1 DIAL baseline values applied to the LeRobot lower-body model.
+# The cost weights mirror UnitreeH1LocoEnv; geometry and dynamics remain LeRobot.
+
+[robot]
+timestep = 0.02
+control_mode = "torque"
+solver_iterations = 1
+ls_iterations = 1
+joint_damping = 2.0
+initial_clearance = 0.0
+
+[mpc]
+plan_horizon = 0.4
+num_knots = 6 # H1 Hnode=5 represents six knot values including both endpoints.
+num_samples = 2048
+noise_level = 1.0 # H1 sigma_scale=1 in normalized action coordinates.
+temperature = 0.05
+beta_opt_iter = 1.0
+beta_horizon = 1.5818703 # Makes adjacent-knot sigma ratio exp(1/(beta*K)) equal 1/0.9.
+iterations = 1
+initial_diffusion_iterations = 10
+trajectory_diffuse_factor = 0.2
+normalize_costs_for_temperature = true
+append_mean_sample = true
+fix_initial_knot = true
+spline_type = "zero"
+control_decimation = 1
+
+[cost]
+target_vx = 0.6
+target_vy = 0.0
+ramp_up_time = 3.0
+gait_weight = 10.0
+ref_tracking_weight = 0.0
+velocity_weight = 1.0
+upright_weight = 0.5
+height_weight = 0.5
+hip_lateral_weight = 0.0
+contact_weight = 0.0
+stance_slip_weight = 0.0
+gait_start_delay = 0.0
+yaw_weight = 0.5
+angular_velocity_weight = 1.0
+foot_level_weight = 0.02
+foot_placement_weight = 0.0
+position_weight = 0.0
+contact_event_weight = 0.0
+air_time_weight = 0.0
+energy_weight = 0.01
+alive_weight = 0.0
+unhealthy_penalty = 0.0
+duty = 0.5
+cadence = 1.5
+swing_height = 0.10
+hip_amplitude = 0.25
+knee_amplitude = 0.35
+terminal_height_weight = 0.0
+terminal_velocity_weight = 0.0
+terminal_upright_weight = 0.0
+
+[evaluation]
+episode_steps = 500
+num_episodes = 1
+height_jitter = 0.0
+terminate_on_fall = true
+seed = 45

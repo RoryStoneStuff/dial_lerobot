@@ -1,0 +1,93 @@
+[robot]
+preserve_link_masses = true
+timestep = 0.01
+control_mode = "torque"
+solver_iterations = 2
+ls_iterations = 2
+joint_damping = 2.0
+foot_contact_model = "h1_pair"
+soft_joint_limit_factor = 0.9
+initial_clearance = 0.0
+
+[cost]
+target_vx = 0.85
+target_vy = 0.0
+ramp_up_time = 3.0
+gait_weight = 4.0
+ref_tracking_weight = 0.0
+velocity_weight = 8.0
+upright_weight = 80.0
+height_weight = 10.0
+hip_lateral_weight = 0.0
+contact_weight = 0.1
+contact_tolerance = 0.002
+contact_height_scale = 0.02
+stance_slip_weight = 0.0
+stance_slip_scale = 0.2
+gait_start_delay = 0.0
+yaw_weight = 0.0
+angular_velocity_weight = 1.0
+foot_level_weight = 0.0
+foot_placement_weight = 0.0
+energy_weight = 0.0
+air_time_weight = 0.0
+position_weight = 0.0
+com_support_weight = 0.0
+com_support_margin = 0.01
+com_support_scale = 0.1
+contact_event_weight = 0.0
+alive_weight = 0.0
+unhealthy_penalty = 500.0
+duty = 0.5
+cadence = 1.0
+swing_height = 0.1
+hip_amplitude = 0.25
+knee_amplitude = 0.35
+qstand_hip = -0.1
+qstand_knee = -0.05
+source_rest_height = 0.85
+source_healthy_z_min = 0.6
+healthy_up_dot = 0.8
+terminal_height_weight = 0.0
+terminal_velocity_weight = 0.0
+terminal_upright_weight = 0.0
+
+[mpc]
+plan_horizon = 0.4
+num_knots = 6
+num_samples = 256
+noise_level = 0.05
+temperature = 0.02
+beta_opt_iter = 1.0
+beta_horizon = 1.5818703
+iterations = 1
+initial_diffusion_iterations = 10
+trajectory_diffuse_factor = 0.2
+normalize_costs_for_temperature = true
+append_mean_sample = true
+fix_initial_knot = true
+spline_type = "quadratic_dial"
+shift_reconstruction = true
+control_decimation = 1
+
+[evaluation]
+episode_steps = 1000
+num_episodes = 4
+height_jitter = 0.0
+terminate_on_fall = true
+seed = 45
+
+
+[design]
+fixed_density_proxy = 2.0
+# theta: thigh m, shin m, density proxy, hip-anchor width m.
+# Local search around nominal: approximately +/-25% lengths, +/-15% hip width.
+# Initial SD approximately 10% of leg lengths and 6% of hip width.
+# Mass is fixed; only thigh length, shin length, and hip width are optimized.
+# preserve_link_masses also disables length-dependent mass scaling.
+sigma0 = 0.035
+lower_bounds = [0.256, 0.196, 0.8, 0.226]
+upper_bounds = [0.427, 0.326, 4.0, 0.306]
+maxiter = 5
+popsize = 6
+seed = 42

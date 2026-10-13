@@ -61,11 +61,37 @@ def live_view(evaluator, seconds=10.0, rate=1.0):
                     print(f"sim {data.time:.2f}s | vx {row['body_velocity'][0]:.3f} "
                           f"target {row['target_velocity'][0]:.3f} m/s | z {data.qpos[2]:.3f}m", flush=True)
                     last_report = time.perf_counter()
-                if seconds > 0 and data.time >= seconds:
+                if evaluator.cfg.evaluation.terminate_on_fall and not bool(row["healthy"]):
+                    flags["paused"] = True
+                    print("Fall detected; paused. R restarts; close the window to exit.", flush=True)
+                elif seconds > 0 and data.time >= seconds:
                     flags["paused"] = True
                     print("Duration reached. R restarts; close the window to exit.", flush=True)
             view.sync()
             time.sleep(max(0.001, (0.01 if flags["paused"] else dt / rate) - (time.perf_counter() - tick)))
+
+
+
+def contact_view(model):
+    """Open a static MuJoCo viewer for inspecting generated foot contacts."""
+    import mujoco.viewer
+
+    data = initial_data(model)
+    flags = {"paused": False, "reset": False}
+    print("Contact geometry viewer: close the window to exit.", flush=True)
+    print("Red capsules are the generated foot contact rails; the robot is not running MPC.", flush=True)
+    with mujoco.viewer.launch_passive(model, data, key_callback=_key_handler(flags)) as view:
+        _camera(view, model)
+        # Make every geometry group available in the viewer. The generated
+        # rails are group 0, while source groups remain available for comparison.
+        view.opt.geomgroup[:] = 1
+        while view.is_running():
+            if flags["reset"]:
+                mujoco.mj_resetData(model, data)
+                mujoco.mj_forward(model, data)
+                flags["reset"] = False
+            view.sync()
+            time.sleep(0.02)
 
 
 def load_trajectory(path):
@@ -142,17 +168,24 @@ def plot_results(path, output=None):
         axes[0, 1].plot(t, a["qpos"][:, 2], label="base height")
         axes[0, 1].set(ylabel="m", title="Base height")
         for i, side in enumerate(("left", "right")):
-            axes[1, 0].plot(t, a["feet"][:, i, 2], label=side)
+            height = a["foot_bottoms"][:, i].min(axis=1) if "foot_bottoms" in a else a["feet"][:, i, 2]
+            axes[1, 0].plot(t, height, label=side)
             axes[1, 0].plot(t, a["foot_target_z"][:, i], "--", label=f"{side} target")
         axes[1, 0].set(ylabel="m", title="Sole height above flat ground")
-        for i, name in enumerate(COST_NAMES):
+        metadata_path = path.parent / "metadata.json"
+        metadata = json.loads(metadata_path.read_text()) if metadata_path.exists() else {}
+        names = metadata.get("task", {}).get("cost_terms", list(COST_NAMES))
+        if len(names) != a["cost_terms"].shape[1]:
+            names = [n for n in COST_NAMES if n != "stance_slip"]
+        for i, name in enumerate(names):
             axes[1, 1].plot(t, a["cost_terms"][:, i], label=name)
         axes[1, 1].set(title="Weighted cost per MPC update")
         axes[2, 0].plot(a["qpos"][:, 0], a["qpos"][:, 1], label="root path")
         axes[2, 0].set(xlabel="world x (m)", ylabel="world y (m)", title="Path")
         axes[2, 0].axis("equal")
         axes[2, 1].plot(t, a["ctrl"])
-        axes[2, 1].set(title="12 position targets", ylabel="rad")
+        torque = metadata.get("config", {}).get("robot", {}).get("control_mode", "torque") == "torque"
+        axes[2, 1].set(title="Applied actuator commands", ylabel="Nm" if torque else "rad")
         for ax in axes.flat:
             ax.grid(alpha=0.3)
             if ax is not axes[2, 0]:
@@ -172,9 +205,15 @@ def plot_results(path, output=None):
             generations = log["generations"]
             fig, axes = plt.subplots(2, 1, figsize=(9, 8), constrained_layout=True)
             axes[0].plot([g["generation"] + 1 for g in generations], [g["best_so_far"] for g in generations])
-            axes[0].set(ylabel="best fitness", xlabel="generation")
-            for i, name in enumerate(("thigh (m)", "shin (m)", "density proxy")):
-                best = [max(g["evaluations"], key=lambda r: r["fitness"])["theta"][i] for g in generations]
+            axes[0].set(ylabel="incumbent legacy fitness", xlabel="generation")
+            selected = [g["best_theta_so_far"] if "best_theta_so_far" in g else
+                        (min(g["evaluations"], key=lambda r: r["selection_rank"])["theta"]
+                         if all("selection_rank" in r for r in g["evaluations"]) else
+                         max(g["evaluations"], key=lambda r: r["fitness"])["theta"])
+                        for g in generations]
+            names = ("thigh (m)", "shin (m)", "density proxy", "hip width (m)")
+            for i, name in enumerate(names[:len(log["theta0"])]):
+                best = [theta[i] for theta in selected]
                 axes[1].plot(range(1, len(best) + 1), best, label=name)
             axes[1].set(xlabel="generation", ylabel="generation-best parameters")
             axes[1].legend()

@@ -1,3 +1,6 @@
+[robot]
+timestep = 0.005
+
 # Plumbing test only. These settings cannot establish walking performance.
 [mpc]
 plan_horizon = 0.02

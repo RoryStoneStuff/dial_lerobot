@@ -1,0 +1,228 @@
+{
+  "repository": "Virgileboat/lerobot-legged-zoo",
+  "revision": "5422c5b3e0ebcea0983d4330b9b71722a4c6248c",
+  "source_xml": "models/bipedal_plateform_no_arms/mjcf/robot.xml",
+  "patched_xml_sha256": "2f80b27c41f8770177b945125f5b0e8d6e279346bc43cedb4f922904946ffea6",
+  "files": [
+    {
+      "path": "models/bipedal_plateform_no_arms/mjcf/robot.xml",
+      "sha256": "8d07893f1198231dd63c3daafb99b8eb5a28aca0a50dc2efd5d2b25b83ab1c8e"
+    },
+    {
+      "path": "models/bipedal_plateform_no_arms/mjcf/assets/0001755650_00mini_000_asm_1_asm_1_asm_00mini__20250103_a0001_asm_1_as_asm_1_1_30_gr_2202_asm_1_asm_1_1_30_gr_2202_asm_fl46blw10_48v_5n_m_de_2__fl46blw10_48v_5n_m_de.stl",
+      "sha256": "34632c7d4fb73aa5f03788d312d2a099fcd238b48b4bf836aaf0788cc1af3a2e"
+    },
+    {
+      "path": "models/bipedal_plateform_no_arms/mjcf/assets/0001755652_00mini_000_asm_1_asm_1_asm_00mini__20250103_a0001_asm_1_as_asm_1_1_30_gr_2202_asm_1_asm_1_1_30_gr_2202_asm_fl46blw10_48v_5n_m_de_2__fl46blw10_48v_5n_m_de.stl",
+      "sha256": "c0e3c8f5bdb4f5c96993f173b6fe6ade55c93495f1d8dab304166f793539f17f"
+    },
+    {
+      "path": "models/bipedal_plateform_no_arms/mjcf/assets/0001755652_1_1_30_gr_2202_asm_1_asm_1_1_30_gr_2202_asm_fl46blw10_48v_5n_m_de_2__fl46blw10_48v_5n_m_de.stl",
+      "sha256": "c0e3c8f5bdb4f5c96993f173b6fe6ade55c93495f1d8dab304166f793539f17f"
+    },
+    {
+      "path": "models/bipedal_plateform_no_arms/mjcf/assets/07534_05x20_catpart.stl",
+      "sha256": "90466cf3353571bab6d47b17bb7bd020e3eb0628e17133391014fdeaa53c1c6b"
+    },
+    {
+      "path": "models/bipedal_plateform_no_arms/mjcf/assets/07534_05x40_catpart.stl",
+      "sha256": "9940ac1de34339a67f1dd82b8585a6d234dcb0acaf3fd959f7838f2e9db8ef2e"
+    },
+    {
+      "path": "models/bipedal_plateform_no_arms/mjcf/assets/1_1_02_eb461_502_fl46blw10_48v_5n_m_de_2__fl46blw10_48v_5n_m_de.stl",
+      "sha256": "3091ac67303634b13e0084efcd42ad6e4c803f6b089fd61e68afddc3b20a1d15"
+    },
+    {
+      "path": "models/bipedal_plateform_no_arms/mjcf/assets/1_1_02_eb901_558_1.stl",
+      "sha256": "ad1d38b0bf12e077182d7d4d421ff312c3965426561f090b7665397dd96cfe0d"
+    },
+    {
+      "path": "models/bipedal_plateform_no_arms/mjcf/assets/1_1_06_eb463_507_fl46blw10_48v_5n_m_de_2__fl46blw10_48v_5n_m_de.stl",
+      "sha256": "198830fd8ba99065469c81db39d005f7fc6ae5a5c6a6abbb10351e6506fd0913"
+    },
+    {
+      "path": "models/bipedal_plateform_no_arms/mjcf/assets/1_1_06_eb463_509_fl46blw10_48v_5n_m_de_2__fl46blw10_48v_5n_m_de.stl",
+      "sha256": "eae92e3fb305445edf3e293b78a30af54363c1a8618c84922f309c00f3ff6370"
+    },
+    {
+      "path": "models/bipedal_plateform_no_arms/mjcf/assets/1_1_06_eb903_537_af0_1.stl",
+      "sha256": "5ba4c741db599233a9a1d88782e1648fb3d6a586599429f3f0aa8bacdfe10ade"
+    },
+    {
+      "path": "models/bipedal_plateform_no_arms/mjcf/assets/1_1_06_eb903_538_1.stl",
+      "sha256": "71b18e7f686ff6c2d429bd0692c68cbf66d41bd8810f7d0e5f02b35dc2e3e8e2"
+    },
+    {
+      "path": "models/bipedal_plateform_no_arms/mjcf/assets/1_1_31_eb463_510_fl46blw10_48v_5n_m_de_2__fl46blw10_48v_5n_m_de.stl",
+      "sha256": "9465ad5f6096dac1403ff0d837637d47421e1be12df99477b1da82f12d733109"
+    },
+    {
+      "path": "models/bipedal_plateform_no_arms/mjcf/assets/1_1_31_qt_942_1.stl",
+      "sha256": "440d9769ca1d1d62c09be8ee106a7b1c142143eaa1b0c6c92bd735475a01a33b"
+    },
+    {
+      "path": "models/bipedal_plateform_no_arms/mjcf/assets/27628_01_050_catpart.stl",
+      "sha256": "5448459555c45eb2414b12353b3d986e7c635fe6bd24ae0139eed9364e8d4abc"
+    },
+    {
+      "path": "models/bipedal_plateform_no_arms/mjcf/assets/6706__300001_1_1_00mini_000_asm_1_asm_1_asm_00mini__20250103_a0001_asm_1_as_asm_1_1_30_gr_2202_asm_1_asm_1_1_30_gr_2202_asm_fl46blw10_48v_5n_m_de_2__fl46blw10_48v_5n_m_de.stl",
+      "sha256": "319d7e33a544d099d84ffa18d7ef61bb36e887f7c7a784fb7288c9e265b9a1b4"
+    },
+    {
+      "path": "models/bipedal_plateform_no_arms/mjcf/assets/actuation_ankle.stl",
+      "sha256": "b2bac1ad1d1be6417ae96ba284cfdadbde8b9a10e42b42e4c10dbc70d7bd6165"
+    },
+    {
+      "path": "models/bipedal_plateform_no_arms/mjcf/assets/bearing_15_21_4.stl",
+      "sha256": "40739f2b2c4df6f96d54e42995b43e0a3d53d517435e58b4921292c0fb6370c2"
+    },
+    {
+      "path": "models/bipedal_plateform_no_arms/mjcf/assets/bearing_35_72_17.stl",
+      "sha256": "54018eefd7c36a5010b06b8c066e20ba77b028416924c4e976afdfdb765887e9"
+    },
+    {
+      "path": "models/bipedal_plateform_no_arms/mjcf/assets/bearing_5_16_5.stl",
+      "sha256": "df6810ade0d5f7f7f9ff6cc8a78eb9325fc3237ad6b4ce2c7822c0fa85147dae"
+    },
+    {
+      "path": "models/bipedal_plateform_no_arms/mjcf/assets/femur_12.stl",
+      "sha256": "ca7718d6e030b8b00fd74ae015fe20699437454175b88ac761f6f419d583bd37"
+    },
+    {
+      "path": "models/bipedal_plateform_no_arms/mjcf/assets/femur_12_sym.stl",
+      "sha256": "f5b563aab1ffd70e93ce324d99f599269065536609f4547db3783ce631865c56"
+    },
+    {
+      "path": "models/bipedal_plateform_no_arms/mjcf/assets/femur_22.stl",
+      "sha256": "f24c37ee3c26fd7218b2811d2be6d6205f702267ce71da2426c94fd181dd14c4"
+    },
+    {
+      "path": "models/bipedal_plateform_no_arms/mjcf/assets/femur_22_sym.stl",
+      "sha256": "2d30732483471651484b1f26939ac45e1e3298ad4ea9365cf3d719f6b8e00d74"
+    },
+    {
+      "path": "models/bipedal_plateform_no_arms/mjcf/assets/foot.stl",
+      "sha256": "15f7ead76512f2f8bddd72d021d02039dd2428a0b02b46310a488af8ec3eba0a"
+    },
+    {
+      "path": "models/bipedal_plateform_no_arms/mjcf/assets/hat_big.stl",
+      "sha256": "270c3965f8a0d9ebe01279562bcdeab43f11ace10f75c2c75304ef0dbf8038d0"
+    },
+    {
+      "path": "models/bipedal_plateform_no_arms/mjcf/assets/hat_femur.stl",
+      "sha256": "7b12bdacd185a7a0ec9c6b7679e92a681f1f6b8a25728d58a513111809584818"
+    },
+    {
+      "path": "models/bipedal_plateform_no_arms/mjcf/assets/hat_small.stl",
+      "sha256": "f61b9b0cbc24a62f2d60f95d79be2b76d0877d56bf55cf78ed2017fb371d0975"
+    },
+    {
+      "path": "models/bipedal_plateform_no_arms/mjcf/assets/hex_thin_nut_grade_a___b_m4x0_7__a8228d9ce5dcc05f24da0a2f74d882f3.stl",
+      "sha256": "4ac3192d30ac3803d9c1994a0867b1b89ce12ca8937fae7532a7eac71270fa8b"
+    },
+    {
+      "path": "models/bipedal_plateform_no_arms/mjcf/assets/hipxy.stl",
+      "sha256": "50c90d54d3cfb25f02ea6208daeabdcd77b77f802d2ec56a237b62e9f29bc710"
+    },
+    {
+      "path": "models/bipedal_plateform_no_arms/mjcf/assets/hipxy_sym.stl",
+      "sha256": "73c2091d44a7da6931823d8018527e37809aea836d809a39d48b87e17559dae1"
+    },
+    {
+      "path": "models/bipedal_plateform_no_arms/mjcf/assets/hipz12.stl",
+      "sha256": "8ba9329782dd55ba057c0d2c755bb3304e3ebc565f936d7bf8ff8304444f5178"
+    },
+    {
+      "path": "models/bipedal_plateform_no_arms/mjcf/assets/hipz12_sym.stl",
+      "sha256": "073ef980f36c2871792d28baaaf0292f029f46c903ca1c9b2f9f05b97d5dcd26"
+    },
+    {
+      "path": "models/bipedal_plateform_no_arms/mjcf/assets/hipz22.stl",
+      "sha256": "9b4f8318ab318490785774885ab8fa28d8397e82dad5c74ee2ee59119761c7bb"
+    },
+    {
+      "path": "models/bipedal_plateform_no_arms/mjcf/assets/hipz22_sym.stl",
+      "sha256": "dcf1a26abd0ee8919d0e86e36dfb2fa5f401480c582f07998327113a228fbd19"
+    },
+    {
+      "path": "models/bipedal_plateform_no_arms/mjcf/assets/knee_actuation.stl",
+      "sha256": "c57735e68a0fc80bad689ba09fcec12da32ea8733298ef5cdf875304a9e28546"
+    },
+    {
+      "path": "models/bipedal_plateform_no_arms/mjcf/assets/knee_rod12.stl",
+      "sha256": "4c7db166870bee671417db13731fb02e2ea2bb35db186d125ed1726041f2b395"
+    },
+    {
+      "path": "models/bipedal_plateform_no_arms/mjcf/assets/knee_rod12_sym.stl",
+      "sha256": "cfa89297c263f7d0dcb118f92176af9d168022d8f10cbbf2b85cb67e54e7e830"
+    },
+    {
+      "path": "models/bipedal_plateform_no_arms/mjcf/assets/knee_rod22.stl",
+      "sha256": "36c639c1d37af4de1f2aa73b35cab2b19bad478204e28abe9fa091558b879d0f"
+    },
+    {
+      "path": "models/bipedal_plateform_no_arms/mjcf/assets/knee_rod22_sym.stl",
+      "sha256": "2c46720a25e1f26aa98eb94258f0a4ece1f76b8f81f15594e381535285f7a8d1"
+    },
+    {
+      "path": "models/bipedal_plateform_no_arms/mjcf/assets/part_3.stl",
+      "sha256": "04ad9b697a2949aa012e423d26dd0b320ed98378da0546a380d7e32e62cc052f"
+    },
+    {
+      "path": "models/bipedal_plateform_no_arms/mjcf/assets/rmdx43.stl",
+      "sha256": "59607531444c2345a3a57b5751f3dd0e3ae0710c0fedf1e21841221ad4ea6621"
+    },
+    {
+      "path": "models/bipedal_plateform_no_arms/mjcf/assets/robstride02.stl",
+      "sha256": "fbefe4f6681a55575016698be1fadcf7ce503bd037419ef7b8b34980e846f318"
+    },
+    {
+      "path": "models/bipedal_plateform_no_arms/mjcf/assets/robstrideo0.stl",
+      "sha256": "988f0a5c687f3cf9af94c02981a283390e79790cad52e8934dfe0b3e8b18c2f4"
+    },
+    {
+      "path": "models/bipedal_plateform_no_arms/mjcf/assets/robstrideo3.stl",
+      "sha256": "13b6c75a35816a2a86c8c3d0aa7aebd1a349c42546036ded3606e0b951acfa20"
+    },
+    {
+      "path": "models/bipedal_plateform_no_arms/mjcf/assets/spacer_ujoint.stl",
+      "sha256": "4d3f74a90b29997779bb189538b07a7a72e10f7a7d8eeb839edb2172af04dd7d"
+    },
+    {
+      "path": "models/bipedal_plateform_no_arms/mjcf/assets/tibias12.stl",
+      "sha256": "78a486d1469f15ee7fb2f41d25d8be9ba2d16b10ff15fb8cc09b9d3d7fda397a"
+    },
+    {
+      "path": "models/bipedal_plateform_no_arms/mjcf/assets/tibias12_sym.stl",
+      "sha256": "5fc7306be0b7af00b04b8fa49bc42ed2186e22581c63b25d0e7320698705a9b8"
+    },
+    {
+      "path": "models/bipedal_plateform_no_arms/mjcf/assets/tibias22.stl",
+      "sha256": "9c4747fbf212b54dfed7ad67dfa6896d137e9afc278b975818bd9e11fdb475f5"
+    },
+    {
+      "path": "models/bipedal_plateform_no_arms/mjcf/assets/tibias22_sym.stl",
+      "sha256": "25d8acb7598de885bd05185d74a3420506e898770a9a711354300175f0d31463"
+    },
+    {
+      "path": "models/bipedal_plateform_no_arms/mjcf/assets/torso12.stl",
+      "sha256": "6fc5365cfd68dbb73f763d4497f9d6175f8a3b49342085a08f6797c43ce71dd2"
+    },
+    {
+      "path": "models/bipedal_plateform_no_arms/mjcf/assets/torso22.stl",
+      "sha256": "1adb353aac28bbcdbb207263405cced30ff5b8245a6b2afb66c66bd68d94dec7"
+    },
+    {
+      "path": "models/bipedal_plateform_no_arms/mjcf/assets/torso_mesh.stl",
+      "sha256": "7e28a5d3759bdc68631f16ce73fd39aa65d77e64fcd1a3abc1d821880f53a785"
+    },
+    {
+      "path": "models/bipedal_plateform_no_arms/mjcf/assets/ujoint.stl",
+      "sha256": "c0e2e5b49350b16cf11cdf566e5dab217776cd8de5515a71c82485b24e2b7b29"
+    },
+    {
+      "path": "models/bipedal_plateform_no_arms/mjcf/assets/xt_30_2x2_f.stl",
+      "sha256": "cfbe74038e69a54c38c5b639b6218d668df17f9f1965132b5a1f3f64a4a7b6c0"
+    }
+  ]
+}

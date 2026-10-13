@@ -37,7 +37,7 @@ def test_explicit_cache_with_spaces(monkeypatch, tmp_path):
 def test_unusable_nested_cache_fails_before_compilation(monkeypatch, tmp_path):
     monkeypatch.setenv("LEROBOT_MPC_CACHE_DIR", str(tmp_path))
     (tmp_path / "xla_gpu_per_fusion_autotune_cache_dir").write_text("not a directory")
-    with pytest.raises(PermissionError, match="LEROBOT_MPC_CACHE_DIR"):
+    with pytest.raises(PermissionError, match="DIAL_LEROBOT_CACHE_DIR"):
         configure_jax_cache()
 
 
