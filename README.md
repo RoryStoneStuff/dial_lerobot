@@ -2,6 +2,8 @@
 
 For a fresh clone on another machine or an HPC server, follow
 [the HPC setup and Git workflow](docs/hpc.md).
+For a Codex agent setting up the cluster, start with
+[the HPC agent handoff](README_HPC_AGENT.md) and [repository instructions](AGENTS.md).
 
 For morphology optimization around the recent walking controller, see
 [the LeRobot co-design workflow](docs/codesign.md) and
