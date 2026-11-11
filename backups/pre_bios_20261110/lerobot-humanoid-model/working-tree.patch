@@ -1,0 +1,13 @@
+diff --git a/models/bipedal_plateform_no_arms/mjcf/robot.xml b/models/bipedal_plateform_no_arms/mjcf/robot.xml
+index de555da..42f908d 100644
+--- a/models/bipedal_plateform_no_arms/mjcf/robot.xml
++++ b/models/bipedal_plateform_no_arms/mjcf/robot.xml
+@@ -24,7 +24,7 @@
+   </sensor>
+   <worldbody>
+     <!-- Link torso_subassembly -->
+-    <body name="torso_subassembly" pos="0 0 0" quat="1 0 0 0" childclass="mjcf">
++    <body name="torso_subassembly" pos="0 0 0.721" quat="1 0 0 0" childclass="mjcf">
+       <freejoint name="torso_subassembly_freejoint"/>
+       <inertial pos="-0.00114344 -0.000332817 0.0495407" mass="2.90375" fullinertia="0.0354956 0.00454723 0.0341916 -5.22042e-06 6.42201e-05 4.37957e-05"/>
+       <!-- Part rs00 -->

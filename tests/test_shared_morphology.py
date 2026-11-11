@@ -58,3 +58,28 @@ def test_shared_step_matches_original_and_does_not_recompile():
     assert kernel.step._cache_size() == 1
     assert not np.isclose(other.task.rest_height, shared.task.rest_height)
     assert np.isfinite(np.asarray(row["cost_terms"])).all()
+
+
+def test_gait_changes_reuse_kernel_and_match_fresh_evaluator():
+    cfg = load_config("configs/codesign_walking.toml")
+    cfg = replace(cfg, mpc=replace(cfg.mpc, num_samples=8, num_knots=3,
+                                  plan_horizon=0.04, initial_diffusion_iterations=1))
+    template = Evaluator(cfg, reuse_compilation=True)
+    state, params = template.reset(seed=123, height_offset=0)
+    jax.block_until_ready(template.step(state, params))
+    kernel = template.shared_kernel
+    tuned = replace(cfg, cost=replace(cfg.cost, duty=0.65, cadence=1.3, gait_start_delay=0.1))
+    shared = Evaluator(tuned, shared_kernel=kernel)
+    fresh = Evaluator(tuned, reuse_compilation=True)
+    for time in (0.05, 0.45, 0.8):
+        state, params = shared.reset(seed=123, height_offset=0)
+        state = state.replace(time=state.time * 0 + time)
+        baseline_row = template.step(state, params)[2]
+        shared_row = shared.step(state, params)[2]
+        fresh_row = fresh.step(state, params)[2]
+        jax.block_until_ready(shared_row)
+        for name in ("qpos", "qvel", "action", "cost_terms", "foot_target_z"):
+            np.testing.assert_allclose(shared_row[name], fresh_row[name], rtol=2e-4, atol=2e-4)
+        if time == 0.45:
+            assert not np.allclose(shared_row["foot_target_z"], baseline_row["foot_target_z"])
+    assert kernel.step._cache_size() == 1

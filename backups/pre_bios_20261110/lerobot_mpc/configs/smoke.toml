@@ -1,0 +1,14 @@
+# Plumbing test only. These settings cannot establish walking performance.
+[mpc]
+plan_horizon = 0.02
+num_knots = 4
+num_samples = 8
+
+[evaluation]
+episode_steps = 3
+num_episodes = 1
+height_jitter = 0.0
+
+[design]
+maxiter = 1
+popsize = 2

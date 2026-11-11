@@ -1,0 +1,73 @@
+upper_hip_link_length: 0.04
+lower_hip_link_length: 0.08
+upper_leg_link_length: 0.34136558643337206
+lower_leg_link_length: 0.2607679717488327
+ankle_link_length: 0.055
+hip_width: 0.266319
+
+torso_length: 0.36
+torso_width: 0.24
+torso_depth: 0.16
+foot_length: 0.20
+foot_width: 0.085
+foot_h: 0.06
+foot_plate_h: 0.015
+foot_offset_x: 0.03
+
+hip_yaw_mot: HY
+hip_roll_mot: HY
+hip_pitch_mot: HY
+knee_mot: KN
+ankle_pitch_mot: AN
+ankle_roll_mot: AN
+
+HY_motor_mode: torque_speed
+HY_motor_effort: 200.0
+HY_motor_velocity: 18.0
+HY_motor_gear: 15.004
+HY_motor_friction: 0.0
+HY_motor_damping: 2.0
+
+KN_motor_mode: torque_speed
+KN_motor_effort: 300.0
+KN_motor_velocity: 18.0
+KN_motor_gear: 15.004
+KN_motor_friction: 0.0
+KN_motor_damping: 2.0
+
+AN_motor_mode: torque_speed
+AN_motor_effort: 40.0
+AN_motor_velocity: 25.0
+AN_motor_gear: 10.572
+AN_motor_friction: 0.0
+AN_motor_damping: 2.0
+
+mass_composition_reference: humanoid
+torso_rho: 650.0
+thigh_rho: 803.0
+shank_rho: 524.0
+foot_rho: 286.2
+link_render_radius_scale: 0.70
+link_motor_penetration: 0.005
+
+allow_hypothetical: true
+allow_motor_overlap: true
+allow_actuator_in_structure: true
+structure_overlap_allowed: [hip_yaw]
+
+hip_yaw_range: [-1.5, 1.5]
+hip_roll_range: [-1.5, 1.5]
+hip_pitch_range: [-3.0, 1.5]
+knee_range: [-2.8, 0.2]
+ankle_pitch_range: [-1.5, 1.5]
+ankle_roll_range: [-1.5, 1.5]
+
+geom_friction: 1 0.005 0.0001
+geom_solref: 0.02 1
+geom_solimp: 0.9 0.95 0.001 0.5 2
+
+link_color: 0.32 0.65 0.41 1
+motor_color: 0.20 0.38 0.23 1
+mot_detail_color: 0.08 0.17 0.11 1
+torso_color: 0.26 0.52 0.32 1
+foot_color: 0.32 0.65 0.41 1

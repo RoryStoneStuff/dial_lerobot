@@ -9,6 +9,7 @@ import jax
 import numpy as np
 
 from dial_lerobot.assets.model_builder import nominal_design
+from dial_lerobot.assets.draft_adapter import motor_feedback_theta
 from dial_lerobot.config import Config
 from dial_lerobot.design_objective import design_objective, minimization_ranks
 from dial_lerobot.evaluator import Evaluator, runtime_versions, write_json
@@ -20,9 +21,14 @@ def optimize_design(cfg: Config, output, theta0=None):
     folder.mkdir(parents=True, exist_ok=True)
     d = cfg.design
     dimensions = len(d.lower_bounds)
-    theta0 = nominal_design(cfg.robot, include_hip_width=dimensions == 4) if theta0 is None else np.asarray(theta0)
+    motor_design = dimensions == 10
+    theta0 = (nominal_design(cfg.robot, include_hip_width=dimensions >= 4,
+                             include_motor_design=motor_design)
+              if theta0 is None else np.asarray(theta0))
     if dimensions == 4 and theta0.shape == (3,):
         theta0 = np.append(theta0, nominal_design(cfg.robot, include_hip_width=True)[3])
+    if dimensions == 10 and theta0.shape == (4,):
+        theta0 = np.concatenate((theta0, np.ones(6)))
     if theta0.shape != (dimensions,) or not np.isfinite(theta0).all():
         raise ValueError("Initial design must match the configured bounds and contain finite values")
     if np.any(theta0 < d.lower_bounds) or np.any(theta0 > d.upper_bounds):
@@ -53,31 +59,59 @@ def optimize_design(cfg: Config, output, theta0=None):
            "started_utc": datetime.now(timezone.utc).isoformat(), "theta0": theta0.tolist(),
            "generations": [], "best_fitness": None, "best_theta": None}
     best_key = None
-    log["selection_objective"] = ["completion_fraction", "survival_fraction", "negative_mean_cost_per_second"]
+    log["selection_objective"] = [
+        "completion_fraction",
+        "survival_fraction",
+    ]
+    if cfg.robot.model_backend == "draft":
+        log["selection_objective"].append("motor_feasible")
+    log["selection_objective"] += [
+        "negative_mean_positive_mechanical_cot",
+        "negative_mean_cost_per_second",
+    ]
     log["evaluation_seed"] = cfg.evaluation.seed
     log["fixed_design_parameters"] = {"density_proxy": value} if fixed_variables else {}
     write_json(folder / "optimization.json", log)
     start = time.perf_counter()
+    share_kernel = True
     # Keep the starting morphology as an incumbent: a search must not replace
     # a good nominal controller with the least bad failed candidate.
     print("Evaluating starting morphology on the common episode seeds...", flush=True)
     baseline = None
     shared_kernel = None
     try:
-        baseline = Evaluator(cfg, theta0, reuse_compilation=True)
+        baseline = Evaluator(cfg, theta0, reuse_compilation=share_kernel)
         shared_kernel = baseline.shared_kernel
         warmup_seconds = baseline.warmup()
         print(f"  Baseline compilation/warmup: {warmup_seconds:.2f}s", flush=True)
         baseline_folder = folder / "baseline"
         result = baseline.evaluate(seed=cfg.evaluation.seed, output=baseline_folder)
+        evaluated_theta = theta0
+        if (cfg.robot.model_backend == "draft" and dimensions == 10
+                and cfg.robot.draft_auto_resize_motors):
+            evaluated_theta = motor_feedback_theta(theta0, result)
+            if not np.allclose(evaluated_theta, theta0):
+                print("  Regenerating DRAFT motors from MPC demand...", flush=True)
+                del baseline
+                baseline = Evaluator(
+                    cfg, evaluated_theta,
+                    shared_kernel=shared_kernel if share_kernel else None,
+                    reuse_compilation=share_kernel,
+                )
+                warmup_seconds += baseline.warmup()
+                result = baseline.evaluate(seed=cfg.evaluation.seed, output=baseline_folder)
+            result["motor_feedback"] = {"proposed_theta": np.asarray(theta0).tolist(),
+                                         "evaluated_theta": np.asarray(evaluated_theta).tolist(),
+                                         "safety_margin": 1.20}
+            write_json(baseline_folder / "evaluation.json", result)
         best_key, metrics = design_objective(result, cfg)
         log["baseline"] = {"objective": metrics, "fitness": result["fitness"],
                            "warmup_seconds": warmup_seconds, "episodes": result["episodes"]}
         log["best_fitness"] = result["fitness"]
-        log["best_theta"] = theta0.tolist()
+        log["best_theta"] = np.asarray(evaluated_theta).tolist()
         log["best_objective"] = metrics
         write_json(folder / "best_design.json", {
-            "theta": theta0.tolist(), "fitness": result["fitness"], "config": cfg.to_dict(),
+            "theta": np.asarray(evaluated_theta).tolist(), "fitness": result["fitness"], "config": cfg.to_dict(),
             "model": result["model"], "generation": -1, "seed": cfg.evaluation.seed,
             "objective": metrics, "trajectory_folder": str(baseline_folder.resolve()),
         })
@@ -98,16 +132,39 @@ def optimize_design(cfg: Config, output, theta0=None):
             print(f"Generation {generation + 1}/{d.maxiter}, candidate {i + 1}/{d.popsize}: {theta}", flush=True)
             evaluator = None
             try:
-                evaluator = Evaluator(cfg, theta, shared_kernel=shared_kernel, reuse_compilation=True)
+                evaluator = Evaluator(
+                    cfg, theta,
+                    shared_kernel=shared_kernel if share_kernel else None,
+                    reuse_compilation=share_kernel,
+                )
                 warmup_seconds = evaluator.warmup()
                 print(f"  Compilation/warmup: {warmup_seconds:.2f}s", flush=True)
                 candidate_folder = folder / f"generation_{generation:03d}" / f"candidate_{i:03d}"
                 result = evaluator.evaluate(seed=seed, output=candidate_folder)
+                evaluated_theta = theta
+                if (cfg.robot.model_backend == "draft" and dimensions == 10
+                        and cfg.robot.draft_auto_resize_motors):
+                    evaluated_theta = motor_feedback_theta(theta, result)
+                    if not np.allclose(evaluated_theta, theta):
+                        print("  Regenerating DRAFT motors from MPC demand...", flush=True)
+                        del evaluator
+                        evaluator = Evaluator(
+                            cfg, evaluated_theta,
+                            shared_kernel=shared_kernel if share_kernel else None,
+                            reuse_compilation=share_kernel,
+                        )
+                        warmup_seconds += evaluator.warmup()
+                        result = evaluator.evaluate(seed=seed, output=candidate_folder)
+                    result["motor_feedback"] = {"proposed_theta": np.asarray(theta).tolist(),
+                                                 "evaluated_theta": np.asarray(evaluated_theta).tolist(),
+                                                 "safety_margin": 1.20}
+                    write_json(candidate_folder / "evaluation.json", result)
                 score = result["fitness"]
                 if not np.isfinite(score):
                     raise FloatingPointError("Non-finite candidate fitness")
                 key, metrics = design_objective(result, cfg)
-                evaluations.append({"theta": np.asarray(theta).tolist(), "seed": seed,
+                evaluations.append({"theta": np.asarray(theta).tolist(),
+                                    "evaluated_theta": np.asarray(evaluated_theta).tolist(), "seed": seed,
                                     "fitness": score, "objective": metrics,
                                     "warmup_seconds": warmup_seconds,
                                     "trajectory_folder": str(candidate_folder.resolve()),
@@ -115,7 +172,7 @@ def optimize_design(cfg: Config, output, theta0=None):
                 if best_key is None or key > best_key:
                     best_key = key
                     log["best_fitness"] = score
-                    log["best_theta"] = np.asarray(theta).tolist()
+                    log["best_theta"] = np.asarray(evaluated_theta).tolist()
                     log["best_objective"] = metrics
                     write_json(folder / "best_design.json", {
                         "theta": log["best_theta"], "fitness": score, "config": cfg.to_dict(),
@@ -126,7 +183,11 @@ def optimize_design(cfg: Config, output, theta0=None):
                 # Invalid geometry or divergent dynamics lose; dependency and
                 # programming errors intentionally propagate instead of faking scores.
                 score = -1e12
-                key = (-1.0, -1.0, -float("inf"))
+                key = ((-1.0, -1.0, -float("inf"), -float("inf"),
+                        -float("inf"), -float("inf"))
+                       if cfg.robot.model_backend == "draft"
+                       else (-1.0, -1.0, -float("inf"), -float("inf"),
+                             -float("inf")))
                 evaluations.append({"theta": np.asarray(theta).tolist(), "seed": seed,
                                     "fitness": score, "error": str(exc)})
             finally:

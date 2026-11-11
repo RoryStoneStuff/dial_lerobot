@@ -51,6 +51,42 @@ def interp_quadratic_dial(tq, tk, knots):
     )(knots)
 
 
+@partial(jax.vmap, in_axes=(None, None, 0))
+def interp_cubic_dial(tq, tk, knots):
+    """DIAL-MPC's jax-cosmo k=3 spline."""
+    if knots.shape[0] < 4:
+        raise ValueError("cubic interpolation requires at least 4 knots")
+    return jax.vmap(
+        lambda values: InterpolatedUnivariateSpline(tk, values, k=3)(tq),
+        in_axes=1,
+        out_axes=-1,
+    )(knots)
+
+
+@partial(jax.vmap, in_axes=(None, None, 0))
+def interp_quintic_dial(tq, tk, knots):
+    """Local degree-five interpolation using the nearest six points."""
+    if knots.shape[0] < 6:
+        raise ValueError("quintic interpolation requires at least 6 knots")
+    num_knots = knots.shape[0]
+    left = jnp.clip(jnp.searchsorted(tk, tq, side="right") - 3,
+                    0, num_knots - 6)
+    indices = left[..., None] + jnp.arange(6)
+    local_tk = tk[indices]
+    local_knots = knots[indices]
+    weights = []
+    for index in range(6):
+        weight = jnp.ones_like(tq)
+        for other in range(6):
+            if other != index:
+                weight = weight * (tq - local_tk[..., other]) / (
+                    local_tk[..., index] - local_tk[..., other]
+                )
+        weights.append(weight)
+    weights = jnp.stack(weights, axis=-1)
+    return jnp.sum(weights[..., None] * local_knots, axis=-2)
+
+
 def _finite_state(state):
     """Return a scalar mask indicating whether every MJX data leaf is finite."""
     leaves = jax.tree_util.tree_leaves(state)
@@ -94,14 +130,17 @@ class LeRobotDIAL(DIAL):
         spline_type = kwargs.get("spline_type", "zero")
         # Hydrax does not expose quadratic interpolation; install the local
         # JAX implementation after constructing its standard controller.
-        if spline_type in ("quadratic", "quadratic_dial"):
+        if spline_type in ("quadratic", "quadratic_dial", "cubic_dial", "quintic_dial"):
             kwargs["spline_type"] = "linear"
         super().__init__(*args, **kwargs)
-        if spline_type in ("quadratic", "quadratic_dial"):
+        if spline_type in ("quadratic", "quadratic_dial", "cubic_dial", "quintic_dial"):
             self.spline_type = spline_type
-            self.interp_func = (
-                interp_quadratic if spline_type == "quadratic" else interp_quadratic_dial
-            )
+            self.interp_func = {
+                "quadratic": interp_quadratic,
+                "quadratic_dial": interp_quadratic_dial,
+                "cubic_dial": interp_cubic_dial,
+                "quintic_dial": interp_quintic_dial,
+            }[spline_type]
 
     @partial(jax.vmap, in_axes=(None, None, None, 0, 0))
     def eval_rollouts(self, model, state, controls, knots):

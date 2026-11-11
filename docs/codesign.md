@@ -44,7 +44,20 @@ The outer objective compares these quantities lexicographically:
 
 1. Fraction of episodes completed without failure (higher is better).
 2. Mean fraction of requested duration survived (higher is better).
-3. Mean running cost per simulated second (lower is better).
+3. Minimum commanded-speed gate, when configured (higher is better).
+4. Mean positive mechanical cost of transport (lower is better).
+5. Mean running cost per simulated second as a final tie-breaker (lower is better).
+
+The calibrated DRAFT walking search sets `design.minimum_mean_vx = 0.75`, so a
+candidate must average at least 0.75 m/s forward before its CoT can outrank a
+slower candidate. This is a feasibility gate, not an MPC running-cost term.
+
+Mechanical cost of transport is computed after each episode from the measured
+actuator torque and joint speed as
+`sum(max(tau * qdot, 0)) * dt / (mass * gravity * forward_distance)`. It is an
+outer morphology-selection metric only: it is not added to the DIAL MPC running
+cost. An episode with no positive forward displacement has undefined CoT and
+loses to any otherwise-equivalent episode with a finite value.
 
 Cost is integrated using the physics timestep before dividing by episode time.
 The MPC costs are unchanged. This separates design selection from control
@@ -91,6 +104,13 @@ are released between designs to avoid accumulating GPU memory. The nominal
 controller's execution time alone therefore understates co-design cost.
 This search uses CMA-ES, not RL; an RL outer optimizer could reuse the model
 builder, evaluator, and objective later.
+
+For DRAFT-generated physics, use
+`configs/codesign_draft_moderate_15gen.toml`. This keeps the outer CMA-ES and
+MPC protocol while replacing each candidate's legacy XML scaling with cached
+DRAFT generation, motor design variables, MPC demand feedback, and a strict
+feasibility gate. See
+`docs/draft_integration.md`.
 
 ## Initial smoke validation, 2026-10-01
 

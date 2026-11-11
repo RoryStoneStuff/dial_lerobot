@@ -7,11 +7,13 @@ from dial_lerobot.config import Config, load_config
 from dial_lerobot.design_objective import design_objective, minimization_ranks
 
 
-def result(cfg, updates, cost, fell=False, seconds=None):
+def result(cfg, updates, cost, fell=False, seconds=None, cot=1.0):
     seconds = updates * cfg.robot.timestep if seconds is None else seconds
     return {"fitness": -cost, "model": {}, "episodes": [{
         "updates": updates, "sim_seconds": seconds,
         "integrated_running_cost": cost, "fell": fell,
+        "positive_mechanical_cot": cot,
+        "mean_vx_m_s": 0.85,
         "failure_reason": "fall" if fell else None,
     }]}
 
@@ -47,13 +49,49 @@ def test_fall_cannot_win_by_accumulating_less_cost():
     assert minimization_ranks([fell, survived, survived]) == [1, 0, 0]
 
 
-def test_completed_designs_compare_cost_not_float_clock_drift():
+def test_completed_designs_compare_cot_then_cost_not_float_clock_drift():
     cfg = config()
-    good = design_objective(result(cfg, 100, 5, seconds=1.999999), cfg)[0]
-    bad = design_objective(result(cfg, 100, 10, seconds=2.000001), cfg)[0]
+    good = design_objective(result(cfg, 100, 10, seconds=1.999999, cot=0.5), cfg)[0]
+    bad = design_objective(result(cfg, 100, 5, seconds=2.000001, cot=1.0), cfg)[0]
     assert good > bad
+    lower_cost = design_objective(result(cfg, 100, 5, cot=0.5), cfg)[0]
+    higher_cost = design_objective(result(cfg, 100, 10, cot=0.5), cfg)[0]
+    assert lower_cost > higher_cost
+    no_progress = design_objective(result(cfg, 100, 0, cot=None), cfg)[0]
+    assert bad > no_progress
     with pytest.raises(FloatingPointError):
         design_objective(result(cfg, 100, float("nan")), cfg)
+
+
+def test_speed_gate_beats_lower_cot_slow_design():
+    cfg = replace(config(), design=replace(config().design, minimum_mean_vx=0.75))
+    fast = result(cfg, 100, 10, cot=0.8)
+    slow = result(cfg, 100, 1, cot=0.1)
+    slow["episodes"][0]["mean_vx_m_s"] = 0.6
+    assert design_objective(fast, cfg)[0] > design_objective(slow, cfg)[0]
+
+
+def test_positive_mechanical_transport_uses_output_work_and_weight_distance():
+    import numpy as np
+
+    from dial_lerobot.evaluator import positive_mechanical_transport
+
+    class Model:
+        actuator_trnid = np.asarray(((0, 0), (1, 0)))
+        jnt_dofadr = np.asarray((0, 1))
+        body_mass = np.asarray((4.0, 6.0))
+
+    arrays = {
+        "time": np.asarray((0.1, 0.2)),
+        "actuator_force": np.asarray(((2.0, -3.0), (2.0, -3.0))),
+        "qvel": np.asarray(((4.0, 5.0), (4.0, 5.0))),
+    }
+    work, transport = positive_mechanical_transport(Model(), arrays, distance=2.0,
+                                                     timestep=0.1)
+    assert work == pytest.approx(1.6)
+    assert transport == pytest.approx(1.6 / (10.0 * 9.81 * 2.0))
+    assert positive_mechanical_transport(Model(), arrays, distance=0.0,
+                                         timestep=0.1) == (pytest.approx(1.6), None)
 
 
 def test_outer_loop_shared_seeds_selection_and_saved_design(monkeypatch, tmp_path):

@@ -114,7 +114,7 @@ class LeRobotLocomotionTask(Task):
         phase = self.gait_phase(time)
         stance = self.stance_mask(time).astype(jnp.float32)
         swing_frac = jnp.clip(
-            (phase - 0.5 * c.duty) / max(1.0 - c.duty, 1e-6), 0.0, 1.0
+            (phase - 0.5 * c.duty) / jnp.maximum(1.0 - c.duty, 1e-6), 0.0, 1.0
         )
         # H1 get_foot_step's cosine arch, expressed over LeRobot's gait phase.
         swing = (1 - stance) * jnp.sin(jnp.pi * swing_frac)
@@ -254,7 +254,7 @@ class LeRobotLocomotionTask(Task):
         step_length = jnp.abs(c.target_vx) / c.cadence
         phase = self.gait_phase(state.time)
         swing_fraction = jnp.clip(
-            (phase - 0.5 * c.duty) / max(1.0 - c.duty, 1e-6), 0.0, 1.0
+            (phase - 0.5 * c.duty) / jnp.maximum(1.0 - c.duty, 1e-6), 0.0, 1.0
         )
         # Stance wraps through phase 0. Progress from swing touchdown at
         # phase 1-duty/2 through the wrap to swing lift-off at duty/2.

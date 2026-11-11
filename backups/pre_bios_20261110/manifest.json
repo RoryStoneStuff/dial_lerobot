@@ -1,0 +1,41 @@
+{
+  "co_design": {
+    "path": "/home/rory/co_design",
+    "origin": "https://github.com/lallak/co_design.git",
+    "base_commit": "ef299cc059a51165f2eca43454f5d6eae8577cb5",
+    "untracked_files": [
+      "tools/plot_completion_cost_isosurfaces.py",
+      "tools/plot_completion_cost_volumes.py",
+      "uv.lock"
+    ]
+  },
+  "scikit-topt": {
+    "path": "/home/rory/scikit-topt",
+    "origin": "https://github.com/kevin-tofu/scikit-topt",
+    "base_commit": "cf4bd41aaa08bccd260707db714f1c2faaad083f",
+    "untracked_files": [
+      "examples/tutorial/one_link_benchmark.py",
+      "examples/tutorial/one_link_cylindrical.py"
+    ]
+  },
+  "lerobot-legged-zoo": {
+    "path": "/home/rory/coDesign/lerobot-legged-zoo",
+    "origin": "https://github.com/Virgileboat/lerobot-legged-zoo.git",
+    "base_commit": "5422c5b3e0ebcea0983d4330b9b71722a4c6248c",
+    "untracked_files": [
+      "docs/gait_experiment.md",
+      "docs/lower_body_training.md",
+      "tests/test_gait_rewards.py",
+      "tools/check_lower_body.py",
+      "tools/evaluate_locomotion.py",
+      "training_exemples/lerobot_humanoid_no_arms/actions.py",
+      "training_exemples/lerobot_humanoid_no_arms/gait.py"
+    ]
+  },
+  "lerobot-humanoid-model": {
+    "path": "/home/rory/coDesign/lerobot-humanoid/lerobot-humanoid-model",
+    "origin": "https://github.com/Virgileboat/lerobot-humanoid-model.git",
+    "base_commit": "ea23cbac9b79833eff974d9196a7edb8043effb6",
+    "untracked_files": []
+  }
+}

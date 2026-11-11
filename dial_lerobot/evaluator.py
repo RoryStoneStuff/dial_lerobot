@@ -2,6 +2,7 @@
 
 from importlib.metadata import version
 from copy import copy
+from dataclasses import replace
 import json
 from pathlib import Path
 import time
@@ -12,7 +13,7 @@ from dial_lerobot.controllers import LeRobotDIAL
 from mujoco import mjx
 import numpy as np
 
-from dial_lerobot.assets.model_builder import build_model, describe_model, initial_data, model_xml, nominal_design
+from dial_lerobot.assets.model_builder import build_model, describe_model, export_model_artifacts, initial_data, nominal_design
 from dial_lerobot.config import Config
 from dial_lerobot.tasks.lerobot_task import COST_NAMES, LeRobotLocomotionTask
 
@@ -26,32 +27,60 @@ def write_json(path, value):
     temp.replace(path)
 
 
-def runtime_versions():
-    return {"packages": {p: version(p) for p in ("mujoco", "mujoco-mjx", "jax", "jaxlib", "hydrax", "cma")},
-            "devices": [str(d) for d in jax.devices()],
-            "jax_cache_dir": jax.config.jax_compilation_cache_dir}
+def runtime_versions(*, include_devices=True):
+    runtime = {"packages": {p: version(p) for p in ("mujoco", "mujoco-mjx", "jax", "jaxlib", "hydrax", "cma")},
+               "jax_cache_dir": jax.config.jax_compilation_cache_dir}
+    if include_devices:
+        runtime["devices"] = [str(device) for device in jax.devices()]
+    else:
+        runtime["devices"] = None
+        runtime["device_query"] = "deferred_to_isolated_worker"
+    return runtime
+
+
+def positive_mechanical_transport(model, arrays, distance, timestep):
+    """Return positive actuator work and dimensionless mechanical CoT."""
+    if not len(arrays["time"]):
+        return 0.0, None
+    actuator_dofs = model.jnt_dofadr[model.actuator_trnid[:, 0]]
+    torque = np.asarray(arrays["actuator_force"], dtype=float)
+    joint_velocity = np.asarray(arrays["qvel"][:, actuator_dofs], dtype=float)
+    positive_power = np.maximum(torque * joint_velocity, 0.0).sum(axis=1)
+    work = float(positive_power.sum() * timestep)
+    mass = float(model.body_mass.sum())
+    if distance <= 1e-6 or mass <= 0.0:
+        return work, None
+    return work, work / (mass * 9.81 * distance)
 
 
 class MorphologyKernel:
     """Shared JIT function for fixed topology and changing physical arrays."""
     attributes = ("rest_height", "healthy_z_min", "foot_geom_sizes", "foot_height_offset")
+    gait_parameters = ("duty", "cadence", "gait_start_delay")
+
+    @classmethod
+    def static_config(cls, cfg):
+        return (cfg.robot, replace(cfg.cost, **dict.fromkeys(cls.gait_parameters, 0.0)), cfg.mpc)
 
     def __init__(self, template):
         self.template = template
-        self.config = (template.cfg.robot, template.cfg.cost, template.cfg.mpc)
+        self.config = self.static_config(template.cfg)
         self.structure = jax.tree.structure(self.inputs(template.task))
         self.step = jax.jit(self._step)
 
     def inputs(self, task):
         return (task.model, tuple(jnp.asarray(getattr(task, name), dtype=jnp.float32)
-                                 for name in self.attributes))
+                                 for name in self.attributes),
+                tuple(jnp.asarray(getattr(task.cfg, name), dtype=jnp.float32)
+                      for name in self.gait_parameters))
 
     def _step(self, inputs, state, params):
         # Copies exist only during tracing; no runtime tracers escape into
         # the persistent task/controller or another morphology evaluator.
         evaluator = copy(self.template)
         evaluator.task = copy(self.template.task)
-        evaluator.task.model, values = inputs
+        evaluator.task.model, values, gait = inputs
+        evaluator.task.cfg = replace(evaluator.task.cfg, **dict(zip(self.gait_parameters, gait)))
         for name, value in zip(self.attributes, values):
             setattr(evaluator.task, name, value)
         evaluator.controller = copy(self.template.controller)
@@ -63,7 +92,12 @@ class MorphologyKernel:
 class Evaluator:
     def __init__(self, cfg: Config = Config(), theta=None, *, shared_kernel=None, reuse_compilation=False):
         self.cfg = cfg.validate()
-        self.theta = nominal_design(cfg.robot) if theta is None else np.asarray(theta, dtype=float)
+        self.theta = (nominal_design(
+                          cfg.robot,
+                          include_hip_width=cfg.robot.model_backend == "draft",
+                          include_motor_design=(cfg.robot.model_backend == "draft"
+                                                and len(cfg.design.lower_bounds) == 10))
+                      if theta is None else np.asarray(theta, dtype=float))
         self.model = build_model(self.theta, cfg.robot)
         self.physics_model = (build_model(self.theta, cfg.robot, include_visual=False)
                               if reuse_compilation or shared_kernel is not None else self.model)
@@ -75,7 +109,8 @@ class Evaluator:
                 raise ValueError("Shared morphology compilation requires flat ground")
             impl = self.task.model._impl
             self.task.model = self.task.model.replace(_impl=impl.replace(
-                geom_rbound_hfield=np.zeros_like(impl.geom_rbound_hfield)))
+                geom_rbound_hfield=np.zeros_like(impl.geom_rbound_hfield)),
+                numeric_data=np.zeros_like(self.task.model.numeric_data))
         m = cfg.mpc
         self.controller = LeRobotDIAL(
             self.task, num_samples=m.num_samples, noise_level=m.noise_level,
@@ -95,7 +130,7 @@ class Evaluator:
             self.step = jax.jit(self._step)
         else:
             kernel = self.shared_kernel
-            if kernel.config != (cfg.robot, cfg.cost, cfg.mpc):
+            if kernel.config != kernel.static_config(cfg):
                 raise ValueError("Shared kernel requires the same robot, cost, and MPC configuration")
             inputs = kernel.inputs(self.task)
             if jax.tree.structure(inputs) != kernel.structure:
@@ -247,6 +282,35 @@ class Evaluator:
         count = len(arrays["time"])
         distance = float(arrays["qpos"][-1, 0] - initial_x) if count else 0.0
         total_cost = float(arrays["cost_terms"].sum())
+        update_seconds = self.cfg.robot.timestep * self.cfg.mpc.control_decimation
+        if count:
+            positive_work, positive_cot = positive_mechanical_transport(
+                self.model, arrays, distance, update_seconds
+            )
+            torque_limits = np.asarray(self.model.actuator_forcerange[:, 1], dtype=float)
+            torque_fraction = np.abs(arrays["actuator_force"]) / torque_limits
+            max_torque_fraction = float(np.max(torque_fraction))
+            torque_saturation_fraction = float(np.mean(np.any(torque_fraction >= 0.99, axis=1)))
+            torque_fraction_by_joint = {
+                self.model.actuator(index).name: float(np.max(torque_fraction[:, index]))
+                for index in range(self.model.nu)
+            }
+            actuator_dofs = self.model.jnt_dofadr[self.model.actuator_trnid[:, 0]]
+            speed_by_joint = {
+                self.model.actuator(index).name: float(np.max(np.abs(arrays["qvel"][:, actuator_dofs[index]])))
+                for index in range(self.model.nu)
+            }
+            torque_by_joint = {
+                self.model.actuator(index).name: float(np.max(np.abs(arrays["actuator_force"][:, index])))
+                for index in range(self.model.nu)
+            }
+        else:
+            positive_work, positive_cot = 0.0, None
+            max_torque_fraction = None
+            torque_saturation_fraction = None
+            torque_fraction_by_joint = {}
+            speed_by_joint = {}
+            torque_by_joint = {}
         fell = failure_reason is not None or (count > 0 and not bool(arrays["healthy"][-1]))
         if failure_reason is None and fell:
             failure_reason = "fall"
@@ -254,6 +318,13 @@ class Evaluator:
         summary = {"seed": int(seed), "fitness": distance - total_cost,
                    "distance_x_m": distance, "total_running_cost": total_cost,
                    "integrated_running_cost": total_cost * self.cfg.robot.timestep,
+                   "positive_mechanical_work_j": positive_work,
+                   "positive_mechanical_cot": positive_cot,
+                   "max_torque_fraction": max_torque_fraction,
+                   "torque_saturation_fraction": torque_saturation_fraction,
+                   "torque_fraction_by_joint": torque_fraction_by_joint,
+                   "max_speed_by_joint": speed_by_joint,
+                   "max_torque_by_joint": torque_by_joint,
                    "sim_seconds": float(arrays["time"][-1]) if count else 0.0, "wall_seconds": time.perf_counter() - start,
                    "updates": int(len(arrays["time"])), "fell": fell,
                    "failure_time_s": failure_time,
@@ -270,7 +341,7 @@ class Evaluator:
         if output:
             folder = Path(output)
             folder.mkdir(parents=True, exist_ok=True)
-            (folder / "model.xml").write_text(model_xml(self.theta, self.cfg.robot))
+            export_model_artifacts(folder, self.theta, self.cfg.robot)
             write_json(folder / "metadata.json", self.metadata())
         seeds = np.random.SeedSequence(seed).generate_state(self.cfg.evaluation.num_episodes)
         summaries = []

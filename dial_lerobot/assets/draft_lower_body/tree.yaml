@@ -1,0 +1,197 @@
+name: torso_subassembly
+type: root
+color: ${torso_color}
+pos: [0, 0, 0.72]
+sites:
+  - {name: imu, pos: [0, 0, 0]}
+sensors:
+  - {type: gyro, name: imu_ang_vel, site: imu}
+  - {type: velocimeter, name: imu_lin_vel, site: imu}
+children:
+  - name: left_hip_yaw_housing
+    type: basic
+    pos: [-0.000819037, "${hip_width / 2}", 0.04164]
+    euler: [-0.14117978878130455, 0.0034907543945115194, 1.1883853402913456]
+    joint: null
+    geometry:
+      link_l: 0
+      motor_axis: z
+      motor_class: ${hip_yaw_mot}
+      motor_for: hip_yaw
+    children:
+      - name: left_hip_yaw_link
+        type: basic
+        pos: [0, 0, 0]
+        joint: {name: left_hipz, axis: z, range: [-0.3490658504, 0.3490658504], motor_class: "${hip_yaw_mot}"}
+        geometry:
+          link_axis: -z
+          link_l: 0.10287245987143498
+          link_mass_class: hip_link
+          motor_axis: z
+          motor_class: ${hip_roll_mot}
+          motor_for: hip_roll
+        children:
+          - name: left_hip_roll_link
+            type: basic
+            pos: [-0.01897, 0.0289, -0.09689]
+            euler: [-0.2701767139538789, -0.1733719260833062, 2.3308542013762383]
+            joint: {name: left_hipx, axis: z, range: [-0.3490658504, 0.3490658504], motor_class: "${hip_roll_mot}"}
+            geometry:
+              link_axis: -z
+              link_l: 0.1161135297985984
+              link_mass_class: hip_link
+              motor_axis: z
+              motor_class: ${hip_pitch_mot}
+              motor_for: hip_pitch
+            children:
+              - name: left_thigh_link
+                type: basic
+                pos: [0.012638, 0.0276823, -0.112055]
+                euler: [-1.644798020664009, 0.4267329278119949, -2.5121483388752406]
+                joint: {name: left_hipy, axis: z, range: [-1.0471975512, 1.0471975512], motor_class: "${hip_pitch_mot}"}
+                geometry:
+                  link_axis: -y
+                  link_l: ${upper_leg_link_length}
+                  link_mass_class: thigh
+                  motor_axis: z
+                  motor_class: ${knee_mot}
+                  motor_for: knee
+                children:
+                  - name: left_shin_link
+                    type: basic
+                    pos:
+                      - "${-0.17 * upper_leg_link_length / 0.34136558643337206}"
+                      - "${-0.294449 * upper_leg_link_length / 0.34136558643337206}"
+                      - "${-0.0305 * upper_leg_link_length / 0.34136558643337206}"
+                    euler: [0.0, 0.0, -1.524636543519644]
+                    joint: {name: left_knee, axis: z, range: [-0.6, 0.15], motor_class: "${knee_mot}"}
+                    geometry:
+                      link_axis: -y
+                      link_l: ${lower_leg_link_length}
+                      link_mass_class: shank
+                      motor_axis: z
+                      motor_class: ${ankle_pitch_mot}
+                      motor_for: ankle_pitch
+                    children:
+                      - name: left_ankle_pitch_link
+                        type: basic
+                        pos:
+                          - 0
+                          - "${-0.26 * lower_leg_link_length / 0.260768096208106}"
+                          - "${-0.02 * lower_leg_link_length / 0.260768096208106}"
+                        euler: [0.0, 0.0, -0.9551816733717557]
+                        joint: {name: left_ankley, axis: z, range: [-0.1745329252, 0.3490658504], motor_class: "${ankle_pitch_mot}"}
+                        geometry:
+                          link_axis: -y
+                          link_l: 0.025575058162201705
+                          link_mass_class: foot
+                          motor_axis: z
+                          motor_class: ${ankle_roll_mot}
+                          motor_for: ankle_roll
+                        children:
+                          - name: left_foot
+                            type: foot
+                            pos: [0, -0.01594, 0.02]
+                            euler: [1.5707963267948968, 0.0, 1.5638563130095624]
+                            joint: {name: left_anklex, axis: z, range: [-0.1745329252, 0.1745329252], motor_class: "${ankle_roll_mot}"}
+                            geometry:
+                              foot_l: ${foot_length}
+                              foot_w: ${foot_width}
+                              foot_h: ${foot_h}
+                              foot_plate_h: ${foot_plate_h}
+                              foot_offset_x: ${foot_offset_x}
+                              foot_rho: ${foot_rho}
+
+  - name: right_hip_yaw_housing
+    type: basic
+    pos: [-0.000819037, "${-hip_width / 2}", 0.04164]
+    euler: [0.14117978271700482, 0.003490748855072612, -1.2051061058459167]
+    joint: null
+    geometry:
+      link_l: 0
+      motor_axis: z
+      motor_class: ${hip_yaw_mot}
+      motor_for: hip_yaw
+    children:
+      - name: right_hip_yaw_link
+        type: basic
+        pos: [0, 0, 0]
+        joint: {name: right_hipz, axis: z, range: [-0.3490658504, 0.3490658504], motor_class: "${hip_yaw_mot}"}
+        geometry:
+          link_axis: -z
+          link_l: 0.10287245987143498
+          link_mass_class: hip_link
+          motor_axis: z
+          motor_class: ${hip_roll_mot}
+          motor_for: hip_roll
+        children:
+          - name: right_hip_roll_link
+            type: basic
+            pos: [-0.01897, -0.0289, -0.09689]
+            euler: [0.2701763884848607, -0.17337142302789776, -2.3082599193685116]
+            joint: {name: right_hipx, axis: z, range: [-0.3490658504, 0.3490658504], motor_class: "${hip_roll_mot}"}
+            geometry:
+              link_axis: -z
+              link_l: 0.1161135297985984
+              link_mass_class: hip_link
+              motor_axis: z
+              motor_class: ${hip_pitch_mot}
+              motor_for: hip_pitch
+            children:
+              - name: right_thigh_link
+                type: basic
+                pos: [0.012638, -0.0276823, -0.112055]
+                euler: [1.6447991046846135, 0.4267326038517365, -2.7246144280949105]
+                joint: {name: right_hipy, axis: z, range: [-1.0471975512, 1.0471975512], motor_class: "${hip_pitch_mot}"}
+                geometry:
+                  link_axis: y
+                  link_l: ${upper_leg_link_length}
+                  link_mass_class: thigh
+                  motor_axis: z
+                  motor_class: ${knee_mot}
+                  motor_for: knee
+                children:
+                  - name: right_shin_link
+                    type: basic
+                    pos:
+                      - "${0.17 * upper_leg_link_length / 0.34136558643337206}"
+                      - "${0.294449 * upper_leg_link_length / 0.34136558643337206}"
+                      - "${-0.0305 * upper_leg_link_length / 0.34136558643337206}"
+                    euler: [3.1415926535895458, 0.0, 0.5444389932228546]
+                    joint: {name: right_knee, axis: z, range: [-0.6, 0.15], motor_class: "${knee_mot}"}
+                    geometry:
+                      link_axis: -x
+                      link_l: ${lower_leg_link_length}
+                      link_mass_class: shank
+                      motor_axis: z
+                      motor_class: ${ankle_pitch_mot}
+                      motor_for: ankle_pitch
+                    children:
+                      - name: right_ankle_pitch_link
+                        type: basic
+                        pos:
+                          - "${-0.221803 * lower_leg_link_length / 0.2607679717488327}"
+                          - "${-0.135659 * lower_leg_link_length / 0.2607679717488327}"
+                          - "${0.02 * lower_leg_link_length / 0.2607679717488327}"
+                        euler: [-3.1415926535897727, 0.0, -1.1645156362495406]
+                        joint: {name: right_ankley, axis: z, range: [-0.3490658504, 0.1745329252], motor_class: "${ankle_pitch_mot}"}
+                        geometry:
+                          link_axis: -y
+                          link_l: 0.025575058162201705
+                          link_mass_class: foot
+                          motor_axis: z
+                          motor_class: ${ankle_roll_mot}
+                          motor_for: ankle_roll
+                        children:
+                          - name: right_foot
+                            type: foot
+                            pos: [0, -0.01594, 0.02]
+                            euler: [1.5707963267948966, 0.0, -1.5707963267948966]
+                            joint: {name: right_anklex, axis: z, range: [-0.1745329252, 0.1745329252], motor_class: "${ankle_roll_mot}"}
+                            geometry:
+                              foot_l: ${foot_length}
+                              foot_w: ${foot_width}
+                              foot_h: ${foot_h}
+                              foot_plate_h: ${foot_plate_h}
+                              foot_offset_x: ${foot_offset_x}
+                              foot_rho: ${foot_rho}

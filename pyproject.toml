@@ -17,6 +17,9 @@ dependencies = [
 [project.optional-dependencies]
 cuda12 = ["jax[cuda12]==0.10.2"]
 cuda13 = ["jax[cuda13]==0.10.2"]
+draft = [
+  "draft-robots @ git+https://github.com/davidhnguyen2000/draft.git@3b03e144735098ef94b938e85756806f45628f83",
+]
 dev = ["pytest>=8"]
 
 [project.scripts]
@@ -24,6 +27,9 @@ dial-lerobot = "dial_lerobot.run_experiment:main"
 
 [tool.setuptools.packages.find]
 include = ["dial_lerobot*"]
+
+[tool.setuptools.package-data]
+"dial_lerobot.assets" = ["draft_lower_body/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

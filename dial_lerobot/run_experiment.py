@@ -15,6 +15,8 @@ def parser():
     common = argparse.ArgumentParser(add_help=False)
     common.add_argument("--config", type=Path, help="TOML settings; omitted values use baseline defaults")
     common.add_argument("--zoo-root", help="Path to existing lerobot-legged-zoo")
+    common.add_argument("--model-backend", choices=("lerobot", "draft"))
+    common.add_argument("--draft-cache-dir")
     common.add_argument("--timestep", type=float, help="Physics timestep in seconds")
     source = common.add_mutually_exclusive_group()
     source.add_argument("--theta", nargs="+", type=float, metavar="VALUE",
@@ -24,22 +26,39 @@ def parser():
                             ("horizon", "Planning horizon in seconds"), ("noise", "DIAL sampling noise"),
                             ("temperature", "DIAL weighting temperature")):
         common.add_argument(f"--{name}", type=float, help=help_text)
+    common.add_argument("--spline-type", choices=("zero", "linear", "quadratic", "quadratic_dial", "cubic_dial", "quintic_dial"),
+                        help="Control interpolation function")
     for name, help_text in (("samples", "DIAL sample count"), ("knots", "Control spline knots"),
                             ("iterations", "DIAL refinement iterations per MPC update"),
                             ("decimation", "Physics steps per MPC update: baseline 1, PPO cadence 4"),
                             ("steps", "MPC updates per episode"), ("episodes", "Evaluation episodes"),
-                            ("seed", "Evaluation seed")):
+                            ("seed", "Evaluation seed"), ("design-seed", "CMA-ES optimization seed"),
+                            ("solver-iterations", "MuJoCo Newton solver iterations"),
+                            ("ls-iterations", "MuJoCo solver line-search iterations")):
         common.add_argument(f"--{name}", type=int, help=help_text)
     cmd = sub.add_parser("inspect", parents=[common], help="Describe model without compiling DIAL")
     cmd.add_argument("--export-xml", type=Path)
     for name, help_text in (("test", "Run headless DIAL; save trajectories and costs"),
                             ("optimize", "Run CMA-ES morphology search"),
+                            ("gait-optimize", "Optimize gait timing around a fixed morphology"),
                             ("heatmap", "Sweep thigh/shin lengths using DIAL")):
         cmd = sub.add_parser(name, parents=[common], help=help_text)
         cmd.add_argument("--output", type=Path, help="New results folder; default is timestamped")
         if name == "optimize":
             cmd.add_argument("--generations", type=int)
             cmd.add_argument("--popsize", type=int)
+            cmd.add_argument("--resume", action="store_true",
+                             help="Resume a Bayesian optimization from its output folder checkpoints")
+            cmd.add_argument("--optimizer", choices=("cmaes", "bayesian"), default="cmaes")
+            cmd.add_argument("--gait-inner-loop", action="store_true",
+                             help="Optimize gait timing inside each Bayesian morphology evaluation")
+            cmd.add_argument("--gait-candidates", type=int, default=6)
+            cmd.add_argument("--gait-parameters", nargs="+",
+                             choices=("duty", "cadence", "gait_start_delay"),
+                             default=("duty", "cadence", "gait_start_delay"),
+                             help="Gait parameters searched by the Bayesian inner loop")
+        if name == "gait-optimize":
+            cmd.add_argument("--gait-candidates", type=int, default=12)
         if name == "heatmap":
             cmd.add_argument("--points", type=int, default=5)
             cmd.add_argument("--density", type=float, default=2.0)
@@ -64,16 +83,18 @@ def resolve(args):
     design = json.loads(args.design.read_text()) if args.design else None
     cfg = from_dict(design["config"]) if design and not args.config else load_config(args.config)
     theta = design["theta"] if design else args.theta
-    if theta is not None and len(theta) not in (3, 4):
-        raise ValueError("--theta requires three or four values")
+    if theta is not None and len(theta) not in (3, 4, 10):
+        raise ValueError("--theta requires three, four, or ten values")
     mappings = {
-        "robot": {"zoo_root": "zoo_root", "timestep": "timestep"},
+        "robot": {"zoo_root": "zoo_root", "model_backend": "model_backend",
+                  "draft_cache_dir": "draft_cache_dir", "timestep": "timestep",
+                  "solver_iterations": "solver_iterations", "ls_iterations": "ls_iterations"},
         "cost": {"vx": "target_vx", "vy": "target_vy", "wz": "target_wz"},
         "mpc": {"samples": "num_samples", "horizon": "plan_horizon", "knots": "num_knots",
                 "iterations": "iterations", "noise": "noise_level", "temperature": "temperature",
-                "decimation": "control_decimation"},
+                "decimation": "control_decimation", "spline_type": "spline_type"},
         "evaluation": {"steps": "episode_steps", "episodes": "num_episodes", "seed": "seed"},
-        "design": {"generations": "maxiter", "popsize": "popsize"},
+        "design": {"generations": "maxiter", "popsize": "popsize", "design_seed": "seed"},
     }
     for section, mapping in mappings.items():
         updates = {dest: getattr(args, arg) for arg, dest in mapping.items() if getattr(args, arg, None) is not None}
@@ -82,6 +103,15 @@ def resolve(args):
 
 
 def new_output(args):
+    if getattr(args, "resume", False):
+        if args.command != "optimize" or args.optimizer != "bayesian":
+            raise ValueError("--resume is currently supported only for Bayesian optimization")
+        if args.output is None:
+            raise ValueError("--resume requires the existing --output folder")
+        if not (args.output / "optimization.json").exists():
+            raise ValueError(f"Cannot resume; no optimization.json in {args.output}")
+        print(f"Resuming results: {args.output.resolve()}", flush=True)
+        return args.output
     output = args.output or Path("results") / f"{args.command}_{datetime.now():%Y%m%d_%H%M%S_%f}"
     if output.exists() and any(output.iterdir()):
         raise ValueError(f"Results folder is not empty: {output}. Choose a new --output folder.")
@@ -108,7 +138,12 @@ def main():
     cfg, theta = resolve(args)
     if args.command in ("inspect", "snapshot", "contacts"):
         from dial_lerobot.assets.model_builder import build_model, describe_model, model_xml, nominal_design
-        theta = nominal_design(cfg.robot) if theta is None else theta
+        theta = (nominal_design(
+                     cfg.robot,
+                     include_hip_width=cfg.robot.model_backend == "draft",
+                     include_motor_design=(cfg.robot.model_backend == "draft"
+                                           and len(cfg.design.lower_bounds) == 10))
+                 if theta is None else theta)
         model = build_model(theta, cfg.robot)
         if args.command == "inspect":
             print(json.dumps(describe_model(model, theta, cfg.robot), indent=2))
@@ -136,9 +171,24 @@ def main():
             result = evaluator.evaluate(output=output, progress=True)
             print(json.dumps({"fitness": result["fitness"], "episodes": result["episodes"]}, indent=2))
     elif args.command == "optimize":
-        from dial_lerobot.optimize import optimize_design
-        result = optimize_design(cfg, new_output(args), theta)
+        if args.optimizer == "bayesian":
+            from dial_lerobot.bayesian_optimize import optimize_design_bayesian
+            result = optimize_design_bayesian(
+                cfg, new_output(args), theta,
+                args.gait_candidates if args.gait_inner_loop else 0,
+                args.gait_parameters,
+                resume=args.resume,
+            )
+        else:
+            if args.gait_inner_loop:
+                p.error("--gait-inner-loop currently requires --optimizer bayesian")
+            from dial_lerobot.optimize import optimize_design
+            result = optimize_design(cfg, new_output(args), theta)
         print(f"Best theta: {result['best_theta']}; objective: {result['best_objective']}")
+    elif args.command == "gait-optimize":
+        from dial_lerobot.gait_bayesian_optimize import optimize_gait_phase
+        result = optimize_gait_phase(cfg, new_output(args), theta, args.gait_candidates)
+        print(f"Best gait: {result['best_gait']}; objective: {result['best_objective']}")
     elif args.command == "heatmap":
         from dial_lerobot.optimize import design_heatmap
         if theta is not None:

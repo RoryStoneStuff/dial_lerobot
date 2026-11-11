@@ -187,6 +187,15 @@ bash run_mpc.sh optimize --config configs/smoke.toml --output results/search_smo
 # Original CMA settings: 80 generations, 12 candidates per generation.
 bash run_mpc.sh optimize --config configs/baseline.toml --output results/search_01
 
+# Select the Gaussian-process Bayesian optimizer instead.
+bash run_mpc.sh optimize --optimizer bayesian --config configs/baseline.toml \
+  --generations 20 --popsize 4 --output results/bayesian_search_01
+
+# Optimize gait timing around one fixed morphology.
+bash run_mpc.sh gait-optimize --config configs/baseline.toml \
+  --theta 0.25 0.25 2.0 0.20 --gait-candidates 12 \
+  --output results/gait_inner_loop_01
+
 bash run_mpc.sh visualize results/search_01/optimization.json
 bash run_mpc.sh inspect --design results/search_01/best_design.json
 bash run_mpc.sh render --design results/search_01/best_design.json
@@ -231,6 +240,39 @@ can seed a fresh search using `--design`.
 The full default search contains 960 candidates and 576,000 MPC updates,
 so it can take days at the measured baseline speed. Start with the small
 validation settings and tune the controller before spending that compute.
+The Bayesian option uses a Gaussian-process surrogate with an upper-confidence
+bound acquisition rule. It evaluates an initial space-filling set, then samples
+where predicted utility or uncertainty is high. Its bounded scalar surrogate
+matches the CMA-ES ordering: completion, survival, motor feasibility, speed
+feasibility, lower CoT, and finally lower MPC cost. The exact lexicographic
+`design_objective` still determines the reported best candidate and generation
+ranks. The same `--generations`, `--popsize`, bounds, seeds and saved
+`optimization.json` format are used, but Bayesian state is not resumable after
+interruption.
+The `gait-optimize` command is a small sequential Bayesian inner loop for a
+fixed morphology. It varies only duty factor (`0.40`–`0.70`), cadence
+(`0.70`–`1.40` Hz), and gait start delay (`0`–`0.50` s); gait amplitudes and
+morphology remain fixed. It evaluates the same feasibility-first objective and
+can be called around each outer morphology candidate with
+`optimize --optimizer bayesian --gait-inner-loop --gait-candidates 6`.
+The default gait is evaluated first, followed by the requested number of
+candidates. Six candidates reach the first GP-guided proposal; smaller budgets
+only exercise the baseline and random initialization. CMA-ES is unchanged.
+
+Each morphology's gait search runs in a standalone Python subprocess on the
+configured JAX device. Gait timing is a runtime input to a shared compiled MPC
+kernel, avoiding recompilation for every gait. The outer search uses the winning
+gait's saved evaluation (same seeds and duration) and saves its timing in
+`best_design.json`, so rendering or testing that design uses the tuned gait.
+Automatic motor resizing must be disabled for this mode.
+
+The inner folder contains `worker.log` (including native fault traces),
+`worker_status.json` (completion, exit status, or timeout), and the request and
+result JSON files. Worker failure rejects that morphology and the outer search
+continues; a normal fall remains an evaluated episode. There is no automatic
+CPU fallback. The default worker timeout allows 15 minutes per gait evaluation.
+An unfinished summary alone does not imply a crash: check the owning process
+on the host, its exit code, and `worker_status.json`.
 
 ## Files and results
 
@@ -240,6 +282,7 @@ validation settings and tune the controller before spending that compute.
 | `dial_lerobot/tasks/lerobot_task.py` | Adapted humanoid cost and gait references |
 | `dial_lerobot/evaluator.py` | Shared DIAL controller, simulation and metrics |
 | `dial_lerobot/optimize.py` | CMA-ES and design sweep |
+| `dial_lerobot/bayesian_optimize.py` | Gaussian-process Bayesian design search |
 | `dial_lerobot/visualize_lerobot.py` | Live GUI, replay, snapshot and plots |
 | `dial_lerobot/run_experiment.py` | Command interface |
 | `configs/baseline.toml` | Source defaults with robot adaptations |

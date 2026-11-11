@@ -8,7 +8,13 @@ import tomllib
 
 @dataclass(frozen=True)
 class RobotConfig:
+    model_backend: str = "lerobot"
     zoo_root: str | None = None
+    draft_cache_dir: str | None = None
+    draft_strict: bool = True
+    draft_target_mass_kg: float | None = None
+    draft_motor_mass_scale: float = 1.0
+    draft_auto_resize_motors: bool = False
     timestep: float = 0.02
     control_mode: str = "torque"
     solver_iterations: int = 100
@@ -122,6 +128,7 @@ class DesignConfig:
     popsize: int = 12
     seed: int = 42
     fixed_density_proxy: float | None = None
+    minimum_mean_vx: float | None = None
 
 
 @dataclass(frozen=True)
@@ -174,18 +181,36 @@ class Config:
         }.items():
             if type(value) is not int or value <= 0:
                 raise ValueError(f"{name} must be a positive integer")
+        if self.robot.draft_target_mass_kg is not None and self.robot.draft_target_mass_kg <= 0:
+            raise ValueError("draft_target_mass_kg must be positive when provided")
+        if self.robot.draft_motor_mass_scale <= 0:
+            raise ValueError("draft_motor_mass_scale must be positive")
+        if self.design.minimum_mean_vx is not None and self.design.minimum_mean_vx <= 0:
+            raise ValueError("minimum_mean_vx must be positive when provided")
         if self.mpc.num_knots < 2 or self.design.popsize < 2:
             raise ValueError("num_knots and popsize must be at least 2")
         if not 0 < self.mpc.trajectory_diffuse_factor <= 1:
             raise ValueError("trajectory_diffuse_factor must be in (0, 1]")
-        if self.mpc.spline_type not in ("zero", "linear", "quadratic", "quadratic_dial"):
-            raise ValueError("Use zero, linear, quadratic, or quadratic_dial splines")
+        if self.mpc.spline_type not in ("zero", "linear", "quadratic", "quadratic_dial", "cubic_dial", "quintic_dial"):
+            raise ValueError("Use zero, linear, quadratic, quadratic_dial, cubic_dial, or quintic_dial splines")
         if self.mpc.spline_type in ("quadratic", "quadratic_dial") and self.mpc.num_knots < 3:
             raise ValueError("quadratic interpolation requires at least 3 knots")
+        if self.mpc.spline_type == "cubic_dial" and self.mpc.num_knots < 4:
+            raise ValueError("cubic interpolation requires at least 4 knots")
+        if self.mpc.spline_type == "quintic_dial" and self.mpc.num_knots < 6:
+            raise ValueError("quintic interpolation requires at least 6 knots")
         if self.robot.control_mode not in ("torque", "position"):
             raise ValueError("control_mode must be torque or position")
+        if self.robot.model_backend not in ("lerobot", "draft"):
+            raise ValueError("model_backend must be lerobot or draft")
         if self.robot.foot_contact_model not in ("native", "h1_pair"):
             raise ValueError("foot_contact_model must be native or h1_pair")
+        if self.robot.model_backend == "draft" and self.robot.control_mode != "torque":
+            raise ValueError("The DRAFT backend currently requires torque control")
+        if self.robot.model_backend == "draft" and self.robot.foot_contact_model != "h1_pair":
+            raise ValueError("The DRAFT backend currently requires h1_pair foot contacts")
+        if self.robot.model_backend == "draft" and len(self.design.lower_bounds) not in (4, 10):
+            raise ValueError("DRAFT design bounds require geometry only (4) or geometry plus motors (10)")
         if self.mpc.plan_horizon < self.robot.timestep * self.mpc.control_decimation:
             raise ValueError("Planning horizon must cover at least one MPC update")
         if not 0 < self.cost.duty < 1:
@@ -200,9 +225,9 @@ class Config:
                      "yaw_rate_weight"):
             if getattr(self.cost, name) < 0:
                 raise ValueError(f"{name} must be nonnegative")
-        if (len(self.design.lower_bounds) not in (3, 4)
+        if (len(self.design.lower_bounds) not in (3, 4, 10)
                 or len(self.design.upper_bounds) != len(self.design.lower_bounds)):
-            raise ValueError("Design bounds require thigh, shin, density proxy, and optional hip width")
+            raise ValueError("Design bounds require 3, 4, or DRAFT's 10 geometry/motor values")
         if any(not math.isfinite(lo + hi) or not 0 < lo < hi for lo, hi in
                zip(self.design.lower_bounds, self.design.upper_bounds)):
             raise ValueError("Design bounds must be finite, positive and ordered")

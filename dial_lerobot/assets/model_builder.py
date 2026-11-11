@@ -56,7 +56,12 @@ def _fmt(values) -> str:
     return " ".join(f"{float(x):.17g}" for x in np.atleast_1d(values))
 
 
-def nominal_design(cfg: RobotConfig = RobotConfig(), include_hip_width=False) -> np.ndarray:
+def nominal_design(cfg: RobotConfig = RobotConfig(), include_hip_width=False,
+                   include_motor_design=False) -> np.ndarray:
+    if cfg.model_backend == "draft":
+        from dial_lerobot.assets.draft_adapter import draft_nominal_design
+
+        return draft_nominal_design(include_hip_width, include_motor_design)
     root = ET.parse(source_xml(cfg)).getroot()
     # Anchor-to-anchor distances, including the CAD lateral offsets.
     thigh = np.linalg.norm(_numbers(root.find(f".//body[@name='{SHINS[0]}']").get("pos")))
@@ -163,6 +168,11 @@ def _replace_with_h1_pair_contacts(root: ET.Element):
             geom.set("conaffinity", "0")
 
 def model_xml(theta=None, cfg: RobotConfig = RobotConfig(), *, include_visual=True) -> str:
+    if cfg.model_backend == "draft":
+        from dial_lerobot.assets.draft_adapter import cached_draft_artifact, draft_model_xml
+
+        theta = nominal_design(cfg, include_hip_width=True) if theta is None else theta
+        return draft_model_xml(cached_draft_artifact(theta, cfg))
     path = source_xml(cfg)
     root = ET.parse(path).getroot()
     root.set("model", "lerobot_lower_body_dial_mpc")
@@ -261,10 +271,28 @@ def model_xml(theta=None, cfg: RobotConfig = RobotConfig(), *, include_visual=Tr
 
 
 def build_model(theta=None, cfg: RobotConfig = RobotConfig(), *, include_visual=True) -> mujoco.MjModel:
+    if cfg.model_backend == "draft":
+        from dial_lerobot.assets.draft_adapter import cached_draft_artifact, load_draft_model
+
+        theta = nominal_design(cfg, include_hip_width=True) if theta is None else theta
+        return load_draft_model(cached_draft_artifact(theta, cfg))
     model = mujoco.MjModel.from_xml_string(model_xml(theta, cfg, include_visual=include_visual))
     if (model.nq, model.nv, model.nu) != (19, 18, 12):
         raise ValueError(f"Expected the 12-joint lower body; got nq/nv/nu={model.nq}/{model.nv}/{model.nu}")
     return model
+
+
+def export_model_artifacts(destination, theta=None, cfg: RobotConfig = RobotConfig()) -> Path:
+    destination = Path(destination)
+    destination.mkdir(parents=True, exist_ok=True)
+    if cfg.model_backend == "draft":
+        from dial_lerobot.assets.draft_adapter import cached_draft_artifact, export_draft_artifact
+
+        theta = nominal_design(cfg, include_hip_width=True) if theta is None else theta
+        return export_draft_artifact(destination, cached_draft_artifact(theta, cfg))
+    path = destination / "model.xml"
+    path.write_text(model_xml(theta, cfg))
+    return path
 
 
 def initial_data(model: mujoco.MjModel, height_offset: float = 0.0) -> mujoco.MjData:
@@ -275,9 +303,14 @@ def initial_data(model: mujoco.MjModel, height_offset: float = 0.0) -> mujoco.Mj
 
 
 def describe_model(model, theta, cfg):
+    if cfg.model_backend == "draft":
+        from dial_lerobot.assets.draft_adapter import cached_draft_artifact, describe_draft_model
+
+        return describe_draft_model(model, theta, cfg, cached_draft_artifact(theta, cfg))
     path = source_xml(cfg)
     data = initial_data(model)
     return {
+        "backend": "lerobot",
         "source_xml": str(path), "source_xml_sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
         "theta": np.asarray(theta).tolist(), "nominal_theta": nominal_design(cfg, len(theta) == 4).tolist(),
         "design_parameter_names": ["thigh_length_m", "shin_length_m", "density_proxy"]
